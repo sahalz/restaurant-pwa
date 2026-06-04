@@ -1,0 +1,10 @@
+{
+  "name": "restaurant-pwa-root",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Root workspace of the Restaurant PWA project",
+  "scripts": {
+    "backend:dev": "npm run dev --prefix backend",
+    "backend:start": "npm run start --prefix backend"
+  }
+}
