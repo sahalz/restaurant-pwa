@@ -6,25 +6,111 @@ import { supabase } from '../config/supabase.js';
  */
 export const createOrder = async (req, res, next) => {
   try {
+    const userId = req.user.id;
     const { address_id } = req.body;
 
     if (!address_id) {
       return res.status(400).json({ error: 'address_id is required to place an order' });
     }
 
-    // Mock successful order placement response (matching docs/api_contract.md)
+    // 1. Get the user's cart
+    const { data: cart, error: cartError } = await supabase
+      .from('cart')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (cartError) throw cartError;
+    if (!cart) {
+      return res.status(400).json({ error: 'Cart is empty' });
+    }
+
+    // 2. Fetch the cart items along with menu_items details
+    const { data: cartItems, error: itemsError } = await supabase
+      .from('cart_items')
+      .select(`
+        quantity,
+        menu_item_id,
+        menu_items (
+          price
+        )
+      `)
+      .eq('cart_id', cart.id);
+
+    if (itemsError) throw itemsError;
+
+    if (!cartItems || cartItems.length === 0) {
+      return res.status(400).json({ error: 'No items in cart to check out' });
+    }
+
+    // 3. Calculate total amount
+    let totalAmount = 0;
+    const orderItemsToInsert = [];
+
+    for (const item of cartItems) {
+      const price = item.menu_items?.price ? parseFloat(item.menu_items.price) : 0;
+      totalAmount += price * item.quantity;
+      orderItemsToInsert.push({
+        menu_item_id: item.menu_item_id,
+        quantity: item.quantity,
+        price: price
+      });
+    }
+
+    // 4. Create the main Order record
+    const { data: newOrder, error: orderInsertError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: userId,
+        total_amount: totalAmount,
+        status: 'pending',
+        payment_status: 'unpaid'
+      })
+      .select('*')
+      .single();
+
+    if (orderInsertError) throw orderInsertError;
+
+    // 5. Create OrderItems records mapping to the newly created order
+    const orderItemsPayload = orderItemsToInsert.map(item => ({
+      ...item,
+      order_id: newOrder.id
+    }));
+
+    const { error: itemsInsertError } = await supabase
+      .from('order_items')
+      .insert(orderItemsPayload);
+
+    if (itemsInsertError) {
+      // Cleanup created order if items fail to insert (manual transaction roll back)
+      await supabase.from('orders').delete().eq('id', newOrder.id);
+      throw itemsInsertError;
+    }
+
+    // 6. Clear all items from the user's cart
+    const { error: cartCleanupError } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('cart_id', cart.id);
+
+    if (cartCleanupError) {
+      console.warn('Warning: Failed to clear cart items after checkout:', cartCleanupError);
+    }
+
+    // 7. Return response matching docs/api_contract.md
     return res.status(201).json({
       status: 'success',
       message: 'Order created successfully',
       data: {
-        order_id: 'b1a2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-        total_amount: 25.98,
-        status: 'pending',
-        payment_status: 'unpaid',
-        created_at: new Date().toISOString()
+        order_id: newOrder.id,
+        total_amount: parseFloat(newOrder.total_amount),
+        status: newOrder.status,
+        payment_status: newOrder.payment_status,
+        created_at: newOrder.created_at
       }
     });
   } catch (error) {
+    console.error('Create order error:', error);
     next(error);
   }
 };

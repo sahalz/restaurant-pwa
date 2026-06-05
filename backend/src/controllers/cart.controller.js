@@ -1,4 +1,29 @@
-import { supabase } from '../config/supabase.js';
+import { getAdminClient } from '../config/supabase.js';
+
+/**
+ * Helper function to find or create a user's cart
+ */
+const findOrCreateCart = async (supabase, userId) => {
+  // 1. Try to find the cart
+  const { data: cart, error: findError } = await supabase
+    .from('cart')
+    .select('id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (findError) throw findError;
+  if (cart) return cart;
+
+  // 2. If no cart exists, create a new one
+  const { data: newCart, error: createError } = await supabase
+    .from('cart')
+    .insert({ user_id: userId })
+    .select('id')
+    .single();
+
+  if (createError) throw createError;
+  return newCart;
+};
 
 /**
  * Get current user's cart
@@ -6,25 +31,48 @@ import { supabase } from '../config/supabase.js';
  */
 export const getCart = async (req, res, next) => {
   try {
-    const userId = req.user?.id || 'c2b3e8a7-3df8-43d9-9f7a-8f5d1e2a0b12';
+    const supabase = getAdminClient();
+    const userId = req.user.id;
 
-    // Mock response matching docs/api_contract.md
+    // 1. Get or create the cart
+    const cart = await findOrCreateCart(supabase, userId);
+
+    // 2. Fetch all cart items joined with menu_items
+    const { data: cartItems, error: itemsError } = await supabase
+      .from('cart_items')
+      .select(`
+        id,
+        quantity,
+        menu_item_id,
+        menu_items (
+          name,
+          price
+        )
+      `)
+      .eq('cart_id', cart.id);
+
+    if (itemsError) {
+      throw itemsError;
+    }
+
+    // 3. Format items array matching docs/api_contract.md
+    const formattedItems = (cartItems || []).map((item) => ({
+      cart_item_id: item.id,
+      menu_item_id: item.menu_item_id,
+      name: item.menu_items?.name || 'Unknown Item',
+      price: item.menu_items?.price ? parseFloat(item.menu_items.price) : 0.00,
+      quantity: item.quantity
+    }));
+
     return res.status(200).json({
       status: 'success',
       data: {
-        cart_id: 'd1c2b3a4-5e6f-7a8b-9c0d-1e2f3a4b5c6d',
-        items: [
-          {
-            cart_item_id: 'f1e2d3c4-5b6a-7f8e-9d0c-1b2a3f4e5d6c',
-            menu_item_id: 'e4c7d8a9-2bf3-47a2-9f3a-7f6d1c2a0b89',
-            name: 'Margherita Pizza',
-            price: 12.99,
-            quantity: 2
-          }
-        ]
+        cart_id: cart.id,
+        items: formattedItems
       }
     });
   } catch (error) {
+    console.error('Get cart error:', error);
     next(error);
   }
 };
@@ -35,18 +83,65 @@ export const getCart = async (req, res, next) => {
  */
 export const updateCartItem = async (req, res, next) => {
   try {
+    const supabase = getAdminClient();
+    const userId = req.user.id;
     const { menu_item_id, quantity } = req.body;
 
     if (!menu_item_id || quantity === undefined) {
       return res.status(400).json({ error: 'menu_item_id and quantity are required' });
     }
 
-    // Mock successful update response
+    // 1. Get or create the cart
+    const cart = await findOrCreateCart(supabase, userId);
+
+    if (quantity <= 0) {
+      // 2. Delete item if quantity is 0 or less
+      const { error: deleteError } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('cart_id', cart.id)
+        .eq('menu_item_id', menu_item_id);
+
+      if (deleteError) throw deleteError;
+    } else {
+      // 3. Check if the item already exists in the cart (to work around missing/differently named UNIQUE database constraints)
+      const { data: existingItem, error: checkError } = await supabase
+        .from('cart_items')
+        .select('id')
+        .eq('cart_id', cart.id)
+        .eq('menu_item_id', menu_item_id)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingItem) {
+        // Update the existing item's quantity
+        const { error: updateError } = await supabase
+          .from('cart_items')
+          .update({ quantity })
+          .eq('id', existingItem.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // Insert new cart item
+        const { error: insertError } = await supabase
+          .from('cart_items')
+          .insert({
+            cart_id: cart.id,
+            menu_item_id,
+            quantity
+          });
+
+        if (insertError) throw insertError;
+      }
+    }
+
     return res.status(200).json({
       status: 'success',
       message: 'Cart updated successfully'
     });
   } catch (error) {
+    console.error('Update cart error:', error);
     next(error);
   }
 };

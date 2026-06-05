@@ -1,10 +1,10 @@
-// JWT import removed to avoid unused package dependency in early mock setup
+import { supabase } from '../config/supabase.js';
 
 /**
  * Authentication Middleware
- * Validates the Authorization Bearer token.
+ * Validates the Authorization Bearer token using Supabase Auth.
  */
-export const authenticate = (req, res, next) => {
+export const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -14,25 +14,33 @@ export const authenticate = (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
-    // For initial scaffolding/development:
-    // If the token matches our mock token or any valid bearer token, proceed with a mock user
-    if (token) {
-      req.user = {
-        id: 'c2b3e8a7-3df8-43d9-9f7a-8f5d1e2a0b12',
-        name: 'Jane Doe',
-        email: 'jane@example.com',
-        role: 'customer'
-      };
-      return next();
+    // Verify token using Supabase Auth
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      return res.status(401).json({ error: 'Invalid or expired authentication token.' });
     }
 
-    // Standard verification template (uncomment and config once JWT_SECRET is set up)
-    /*
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
-    req.user = decoded;
+    // Fetch details from public.users table to get their role
+    const { data: profile, error: profileError } = await supabase
+      .from('users')
+      .select('name, role')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profileError) throw profileError;
+
+    // Set user payload on request object
+    req.user = {
+      id: user.id,
+      email: user.email,
+      name: profile?.name || user.user_metadata?.name || 'User',
+      role: profile?.role || user.user_metadata?.role || 'customer'
+    };
+
     next();
-    */
   } catch (error) {
+    console.error('Authentication Error:', error.message);
     return res.status(401).json({ error: 'Invalid authentication token.' });
   }
 };
