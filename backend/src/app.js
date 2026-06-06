@@ -9,6 +9,7 @@ import cartRoutes from './routes/cart.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import supportRoutes from './routes/support.routes.js';
+import deliveryRoutes from './routes/delivery.routes.js';
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/support', supportRoutes);
+app.use('/api/delivery', deliveryRoutes);
 
 // 404 handler
 app.use((req, res, next) => {
