@@ -1,6 +1,4 @@
-import { getAdminClient } from '../config/supabase.js';
-
-const supabase = getAdminClient();
+import { supabase } from '../config/supabase.js';
 
 export const assignRider = async (req, res, next) => {
   try {
@@ -8,14 +6,12 @@ export const assignRider = async (req, res, next) => {
 
     const { data, error } = await supabase
       .from('delivery_tracking')
-      .insert([
-        {
-          order_id,
-          assigned_rider,
-          delivery_status: 'assigned'
-        }
-      ])
-      .select()
+      .insert({
+        order_id,
+        assigned_rider,
+        delivery_status: 'assigned'
+      })
+      .select('*')
       .single();
 
     if (error) throw error;
@@ -41,7 +37,7 @@ export const updateDeliveryStatus = async (req, res, next) => {
         updated_at: new Date()
       })
       .eq('id', id)
-      .select()
+      .select('*')
       .single();
 
     if (error) throw error;
@@ -63,7 +59,7 @@ export const getDeliveryByOrder = async (req, res, next) => {
       .from('delivery_tracking')
       .select('*')
       .eq('order_id', orderId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
 
