@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createOrder } from '../controllers/order.controller.js';
+import { createOrder, getOrders, getOrderById } from '../controllers/order.controller.js';
 import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -8,5 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 router.post('/', createOrder);
+router.get('/', getOrders);
+router.get('/:id', getOrderById);
 
 export default router;
