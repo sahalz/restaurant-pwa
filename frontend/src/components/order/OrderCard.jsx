@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { FaClock, FaMapMarkerAlt, FaCreditCard, FaArrowRight } from 'react-icons/fa';
 import { getStatusColor, getStatusLabel } from '../../data/orderData';
+import { getItemEmoji } from '../../utils/emojiHelper';
+
 
 export const OrderCard = ({ order }) => {
   const statusColor = getStatusColor(order.status);
@@ -42,7 +44,7 @@ export const OrderCard = ({ order }) => {
         <div className="order-items-preview">
           {order.items.slice(0, 3).map((item) => (
             <div key={item.id} className="order-item-preview">
-              <span className="item-emoji">{item.image_url || item.image}</span>
+              <span className="item-emoji">{getItemEmoji(item.name, null, item.image_url, item.image)}</span>
               <span className="item-name">{item.name}</span>
               <span className="item-quantity">×{item.quantity}</span>
             </div>

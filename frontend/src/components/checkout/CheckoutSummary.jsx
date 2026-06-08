@@ -1,4 +1,5 @@
 import { useCart } from '../../context/CartContext';
+import { getItemEmoji } from '../../utils/emojiHelper';
 
 export const CheckoutSummary = () => {
   const { cartItems, total, itemCount } = useCart();
@@ -15,7 +16,7 @@ export const CheckoutSummary = () => {
         {cartItems.map((item) => (
           <div key={item.id} className="summary-item">
             <div className="item-info">
-              <span className="item-emoji">{item.image_url || item.image}</span>
+              <span className="item-emoji">{getItemEmoji(item.name, item.category, item.image_url, item.image)}</span>
               <div className="item-details">
                 <span className="item-name">{item.name}</span>
                 <span className="item-quantity">×{item.quantity}</span>

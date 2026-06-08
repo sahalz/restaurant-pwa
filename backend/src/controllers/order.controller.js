@@ -114,3 +114,99 @@ export const createOrder = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get all orders for the authenticated user
+ * GET /api/orders
+ */
+export const getOrders = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const { data: orders, error } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        total_amount,
+        status,
+        payment_status,
+        created_at,
+        order_items (
+          id,
+          quantity,
+          price,
+          menu_item_id,
+          menu_items (
+            name,
+            image_url
+          )
+        ),
+        payments (
+          payment_method
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      status: 'success',
+      data: orders || []
+    });
+  } catch (error) {
+    console.error('Get orders error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Get a single order by ID for the authenticated user
+ * GET /api/orders/:id
+ */
+export const getOrderById = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        total_amount,
+        status,
+        payment_status,
+        created_at,
+        order_items (
+          id,
+          quantity,
+          price,
+          menu_item_id,
+          menu_items (
+            name,
+            image_url
+          )
+        ),
+        payments (
+          payment_method
+        )
+      `)
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: order
+    });
+  } catch (error) {
+    console.error('Get order by ID error:', error);
+    next(error);
+  }
+};
+

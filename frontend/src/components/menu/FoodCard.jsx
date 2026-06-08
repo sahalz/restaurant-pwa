@@ -1,10 +1,21 @@
 import { FaStar, FaHeart, FaPlus } from 'react-icons/fa';
 
 export const FoodCard = ({ food, onAddToCart }) => {
+  const isUrl = food.image_url && (food.image_url.startsWith('http') || food.image_url.startsWith('/'));
+
   return (
     <div className="food-card">
-      <div className="food-card-image">
-        <span className="food-emoji">{food.image_url || food.image}</span>
+      <div className="food-card-image" style={{ padding: isUrl ? '0px' : '20px' }}>
+        {isUrl ? (
+          <img 
+            src={food.image_url} 
+            alt={food.name} 
+            className="food-img" 
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+        ) : (
+          <span className="food-emoji">{food.image_url || food.image || '🍽️'}</span>
+        )}
         <button className="wishlist-btn" aria-label="Add to wishlist">
           <FaHeart />
         </button>

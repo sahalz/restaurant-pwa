@@ -11,6 +11,8 @@ import paymentRoutes from './routes/payment.routes.js';
 import supportRoutes from './routes/support.routes.js';
 import deliveryRoutes from './routes/delivery.routes.js';
 import complaintRoutes from './routes/complaint.routes.js';
+import refundRoutes from './routes/refund.routes.js';
+import addressRoutes from './routes/address.routes.js';
 
 const app = express();
 
@@ -42,6 +44,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/delivery', deliveryRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/refunds', refundRoutes);
+app.use('/api/addresses', addressRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

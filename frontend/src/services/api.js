@@ -46,6 +46,9 @@ api.interceptors.response.use(
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
+  sendOTP: (data) => api.post('/auth/otp/send', data),
+  verifyOTP: (data) => api.post('/auth/otp/verify', data),
+  getProfile: () => api.get('/auth/profile'),
   logout: () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -56,19 +59,17 @@ export const authAPI = {
 
 export const menuAPI = {
   getMenu: (categoryId) => {
-    const params = categoryId ? { category_id: categoryId } : {};
+    const params = categoryId && categoryId !== 'All' ? { category_id: categoryId } : {};
     return api.get('/menu', { params });
   },
+  getCategories: () => api.get('/categories'),
 };
 
 // ==================== CART MANAGEMENT ====================
 
 export const cartAPI = {
   getCart: () => api.get('/cart'),
-  addToCart: (data) => api.post('/cart/items', data),
-  updateCartItem: (cartItemId, data) => api.put(`/cart/items/${cartItemId}`, data),
-  removeFromCart: (cartItemId) => api.delete(`/cart/items/${cartItemId}`),
-  clearCart: () => api.delete('/cart'),
+  updateCartItem: (menuItemId, quantity) => api.post('/cart/items', { menu_item_id: menuItemId, quantity }),
 };
 
 // ==================== ORDERS ====================
@@ -90,16 +91,25 @@ export const paymentAPI = {
 // ==================== DELIVERY TRACKING ====================
 
 export const deliveryAPI = {
-  getDeliveryStatus: (orderId) => api.get(`/delivery/${orderId}`),
+  getDeliveryStatus: (orderId) => api.get(`/delivery/order/${orderId}`),
 };
 
 // ==================== COMPLAINTS & SUPPORT ====================
 
 export const supportAPI = {
   fileComplaint: (data) => api.post('/complaints', data),
+  getComplaints: () => api.get('/complaints'),
+  updateComplaintStatus: (id, status) => api.patch(`/complaints/${id}`, { status }),
   requestRefund: (data) => api.post('/refunds', data),
-  createSupportTicket: (data) => api.post('/support/tickets', data),
-  getSupportTickets: () => api.get('/support/tickets'),
+  getRefundRequests: () => api.get('/refunds'),
+  createSupportTicket: (data) => api.post('/support', data),
+  getSupportTickets: () => api.get('/support'),
+};
+
+export const addressesAPI = {
+  getAddresses: () => api.get('/addresses'),
+  saveAddress: (data) => api.post('/addresses', data),
+  deleteAddress: (id) => api.delete(`/addresses/${id}`),
 };
 
 export default api;

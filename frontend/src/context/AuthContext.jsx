@@ -1,4 +1,3 @@
-// Authentication context for user management - Aligned with backend API
 import { createContext, useContext, useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
 
@@ -20,67 +19,95 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  /**
+   * Password login for Restaurant Managers and Administrators
+   */
   const login = async (email, password) => {
-    // TODO: Integrate with backend API when ready
-    // try {
-    //   const response = await authAPI.login({ email, password });
-    //   const { token, user: userData } = response.data;
-    //   
-    //   localStorage.setItem('token', token);
-    //   localStorage.setItem('user', JSON.stringify(userData));
-    //   
-    //   setUser(userData);
-    //   setIsAuthenticated(true);
-    //   return { success: true };
-    // } catch (error) {
-    //   console.error('Login error:', error);
-    //   return { 
-    //     success: false, 
-    //     error: error.response?.data?.message || 'Login failed' 
-    //   };
-    // }
-    
-    // Temporary mock login for frontend testing
-    const mockUser = { id: '1', name: 'Test User', email };
-    localStorage.setItem('user', JSON.stringify(mockUser));
-    setUser(mockUser);
-    setIsAuthenticated(true);
-    return { success: true };
+    try {
+      const response = await authAPI.login({ email, password });
+      const { token, user: userData } = response.data;
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      setUser(userData);
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (error) {
+      console.error('Login error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Login failed' 
+      };
+    }
   };
 
-  const register = async (name, email, password, phone, role = 'customer') => {
-    // TODO: Integrate with backend API when ready
-    // try {
-    //   const response = await authAPI.register({ 
-    //     name, 
-    //     email, 
-    //     password, 
-    //     phone, 
-    //     role 
-    //   });
-    //   return { success: true, data: response.data };
-    // } catch (error) {
-    //   console.error('Registration error:', error);
-    //   return { 
-    //     success: false, 
-    //     error: error.response?.data?.message || 'Registration failed' 
-    //   };
-    // }
-    
-    // Temporary mock registration for frontend testing
-    const mockUser = { id: '1', name, email, phone, role };
-    return { success: true, data: mockUser };
+  /**
+   * Password registration for Restaurant Managers and Administrators
+   */
+  const register = async (name, email, password, phone, role = 'manager') => {
+    try {
+      const response = await authAPI.register({ 
+        name, 
+        email, 
+        password, 
+        phone, 
+        role 
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.error('Registration error:', error);
+      return { 
+        success: false, 
+        error: error.response?.data?.error || 'Registration failed' 
+      };
+    }
+  };
+
+  /**
+   * Request an Email OTP code (Customers)
+   */
+  const sendOTP = async (email, name = '', phone = '') => {
+    try {
+      const response = await authAPI.sendOTP({ email, name, phone });
+      return { success: true, message: response.data.message };
+    } catch (error) {
+      console.error('Send OTP error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Failed to send OTP'
+      };
+    }
+  };
+
+  /**
+   * Verify Email OTP code and sign in (Customers)
+   */
+  const verifyOTP = async (email, token) => {
+    try {
+      const response = await authAPI.verifyOTP({ email, token });
+      const { token: jwtToken, user: userData } = response.data;
+
+      localStorage.setItem('token', jwtToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      setUser(userData);
+      setIsAuthenticated(true);
+      return { success: true };
+    } catch (error) {
+      console.error('Verify OTP error:', error);
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Invalid or expired OTP code'
+      };
+    }
   };
 
   const logout = () => {
-    // Clear localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // Clear localStorage and state
+    authAPI.logout();
     setUser(null);
     setIsAuthenticated(false);
-    
-    // TODO: Call backend API when ready
-    // authAPI.logout();
   };
 
   return (
@@ -91,6 +118,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         login, 
         register,
+        sendOTP,
+        verifyOTP,
         logout 
       }}
     >

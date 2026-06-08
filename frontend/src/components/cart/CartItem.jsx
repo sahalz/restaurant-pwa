@@ -1,10 +1,11 @@
 import { FaPlus, FaMinus, FaTrash } from 'react-icons/fa';
+import { getItemEmoji } from '../../utils/emojiHelper';
 
 export const CartItem = ({ item, onIncrease, onDecrease, onRemove }) => {
   return (
     <div className="cart-item">
       <div className="cart-item-image">
-        <span className="food-emoji">{item.image_url || item.image}</span>
+        <span className="food-emoji">{getItemEmoji(item.name, item.category, item.image_url, item.image)}</span>
       </div>
       <div className="cart-item-details">
         <h3 className="cart-item-name">{item.name}</h3>

@@ -1,4 +1,4 @@
-import { FaCheckCircle, FaClock, FaUtensils, FaTimesCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaClock, FaUtensils, FaTimesCircle, FaCheck } from 'react-icons/fa';
 import { getStatusColor, getStatusLabel } from '../../data/orderData';
 
 export const OrderStatus = ({ status, estimatedDelivery, actualDelivery }) => {

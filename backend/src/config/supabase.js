@@ -2,7 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import 'dotenv/config';
 
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = supabaseServiceRoleKey || supabaseAnonKey;
 
 const isPlaceholder = !supabaseUrl || 
                       supabaseUrl === 'your_supabase_project_url' || 
@@ -23,6 +25,19 @@ export const getAdminClient = () => {
   return createClient(
     isPlaceholder ? 'https://placeholder-project.supabase.co' : supabaseUrl,
     isPlaceholder ? 'placeholder-key' : supabaseKey,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  );
+};
+
+export const getAuthClient = () => {
+  return createClient(
+    isPlaceholder ? 'https://placeholder-project.supabase.co' : supabaseUrl,
+    isPlaceholder ? 'placeholder-key' : supabaseAnonKey,
     {
       auth: {
         persistSession: false,

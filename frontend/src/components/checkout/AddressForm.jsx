@@ -1,19 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 
 export const AddressForm = ({ onSubmit }) => {
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    deliveryInstructions: '',
+  const { user } = useAuth();
+  
+  const [formData, setFormData] = useState(() => {
+    try {
+      const saved = localStorage.getItem('saved_delivery_address');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (error) {
+      console.error('Error loading saved address:', error);
+    }
+    return {
+      fullName: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      deliveryInstructions: '',
+    };
   });
+
+  // Pre-populate fullName if user is logged in and fullName is currently empty
+  useEffect(() => {
+    if (user?.name && !formData.fullName) {
+      setFormData(prev => {
+        const updated = { ...prev, fullName: user.name };
+        localStorage.setItem('saved_delivery_address', JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      localStorage.setItem('saved_delivery_address', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const handleSubmit = (e) => {

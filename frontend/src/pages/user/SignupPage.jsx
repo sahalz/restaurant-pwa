@@ -5,15 +5,20 @@ import { useAuth } from '../../context/AuthContext';
 
 export const SignupPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { register } = useAuth();
+  
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
+    role: 'manager', // Default to manager
   });
+  
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,8 +40,8 @@ export const SignupPage = () => {
 
     if (!formData.phone) {
       newErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10}$/.test(formData.phone)) {
-      newErrors.phone = 'Phone number must be 10 digits';
+    } else if (!/^\+?\d{7,15}$/.test(formData.phone)) {
+      newErrors.phone = 'Phone number is invalid';
     }
 
     if (!formData.password) {
@@ -61,7 +66,7 @@ export const SignupPage = () => {
       ...prev,
       [name]: value
     }));
-    // Clear error when user starts typing
+    // Clear error
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -72,49 +77,92 @@ export const SignupPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setServerError('');
+    setSuccessMessage('');
 
     if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
+    const result = await register(
+      formData.name,
+      formData.email,
+      formData.password,
+      formData.phone,
+      formData.role
+    );
+    setIsLoading(false);
 
-    // Simulate API call
-    setTimeout(() => {
-      login({ email: formData.email, name: formData.name });
-      navigate('/');
-      setIsLoading(false);
-    }, 1500);
-  };
-
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  const toggleConfirmPasswordVisibility = () => {
-    setShowConfirmPassword(!showConfirmPassword);
+    if (result.success) {
+      setSuccessMessage('Staff account created successfully! You can now log in.');
+      // Clear form
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        password: '',
+        confirmPassword: '',
+        role: 'manager'
+      });
+      // Redirect after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2500);
+    } else {
+      setServerError(result.error);
+    }
   };
 
   return (
     <>
       <div className="auth-header">
-        <h1>Create Account</h1>
-        <p>Join us to order delicious food!</p>
+        <h1>Create Staff Account</h1>
+        <p>Register a new Manager or Admin account</p>
       </div>
+
+      {serverError && (
+        <div className="error-banner" style={{
+          backgroundColor: '#ffe3e3',
+          color: '#e53e3e',
+          padding: '12px',
+          borderRadius: '6px',
+          marginBottom: '1rem',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          {serverError}
+        </div>
+      )}
+
+      {successMessage && (
+        <div className="success-banner" style={{
+          backgroundColor: '#e6fffa',
+          color: '#319795',
+          padding: '12px',
+          borderRadius: '6px',
+          marginBottom: '1rem',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          {successMessage}
+        </div>
+      )}
 
       <form className="auth-form" onSubmit={handleSubmit}>
         <div className="form-group">
           <label htmlFor="name">Full Name</label>
           <div className="input-wrapper">
-            <FaUser className="input-icon" />
+            <FaUser className="input-icon" style={{ position: 'absolute', left: '12px', top: '15px', color: '#aaa' }} />
             <input
               type="text"
               id="name"
               name="name"
               value={formData.name}
               onChange={handleChange}
-              placeholder="Enter your full name"
+              placeholder="Enter full name"
               className={errors.name ? 'error' : ''}
+              style={{ paddingLeft: '36px' }}
             />
           </div>
           {errors.name && <span className="error-message">{errors.name}</span>}
@@ -123,15 +171,16 @@ export const SignupPage = () => {
         <div className="form-group">
           <label htmlFor="email">Email</label>
           <div className="input-wrapper">
-            <FaEnvelope className="input-icon" />
+            <FaEnvelope className="input-icon" style={{ position: 'absolute', left: '12px', top: '15px', color: '#aaa' }} />
             <input
               type="email"
               id="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
+              placeholder="Enter email address"
               className={errors.email ? 'error' : ''}
+              style={{ paddingLeft: '36px' }}
             />
           </div>
           {errors.email && <span className="error-message">{errors.email}</span>}
@@ -140,25 +189,48 @@ export const SignupPage = () => {
         <div className="form-group">
           <label htmlFor="phone">Phone Number</label>
           <div className="input-wrapper">
-            <FaPhone className="input-icon" />
+            <FaPhone className="input-icon" style={{ position: 'absolute', left: '12px', top: '15px', color: '#aaa' }} />
             <input
               type="tel"
               id="phone"
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="Enter your phone number"
+              placeholder="Enter contact number"
               className={errors.phone ? 'error' : ''}
-              maxLength={10}
+              style={{ paddingLeft: '36px' }}
             />
           </div>
           {errors.phone && <span className="error-message">{errors.phone}</span>}
         </div>
 
         <div className="form-group">
+          <label htmlFor="role">Account Role</label>
+          <select
+            id="role"
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e0',
+              fontSize: '14px',
+              outline: 'none',
+              backgroundColor: '#fff',
+              marginTop: '4px'
+            }}
+          >
+            <option value="manager">Restaurant Manager</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+
+        <div className="form-group">
           <label htmlFor="password">Password</label>
           <div className="input-wrapper">
-            <FaLock className="input-icon" />
+            <FaLock className="input-icon" style={{ position: 'absolute', left: '12px', top: '15px', color: '#aaa' }} />
             <input
               type={showPassword ? 'text' : 'password'}
               id="password"
@@ -167,11 +239,12 @@ export const SignupPage = () => {
               onChange={handleChange}
               placeholder="Create a password"
               className={errors.password ? 'error' : ''}
+              style={{ paddingLeft: '36px', paddingRight: '40px' }}
             />
             <button
               type="button"
               className="password-toggle"
-              onClick={togglePasswordVisibility}
+              onClick={() => setShowPassword(!showPassword)}
               aria-label="Toggle password visibility"
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -183,20 +256,21 @@ export const SignupPage = () => {
         <div className="form-group">
           <label htmlFor="confirmPassword">Confirm Password</label>
           <div className="input-wrapper">
-            <FaLock className="input-icon" />
+            <FaLock className="input-icon" style={{ position: 'absolute', left: '12px', top: '15px', color: '#aaa' }} />
             <input
               type={showConfirmPassword ? 'text' : 'password'}
               id="confirmPassword"
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="Confirm your password"
+              placeholder="Confirm password"
               className={errors.confirmPassword ? 'error' : ''}
+              style={{ paddingLeft: '36px', paddingRight: '40px' }}
             />
             <button
               type="button"
               className="password-toggle"
-              onClick={toggleConfirmPasswordVisibility}
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               aria-label="Toggle password visibility"
             >
               {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
@@ -205,25 +279,18 @@ export const SignupPage = () => {
           {errors.confirmPassword && <span className="error-message">{errors.confirmPassword}</span>}
         </div>
 
-        <div className="form-options">
-          <label className="checkbox-label">
-            <input type="checkbox" required />
-            <span>I agree to the Terms and Conditions</span>
-          </label>
-        </div>
-
         <button
           type="submit"
           className="auth-button"
           disabled={isLoading}
         >
-          {isLoading ? 'Creating Account...' : 'Sign Up'}
+          {isLoading ? 'Registering Account...' : 'Register Staff Account'}
         </button>
       </form>
 
       <div className="auth-footer">
         <p>
-          Already have an account?{' '}
+          Already have a staff account?{' '}
           <Link to="/login" className="auth-link">
             Sign in
           </Link>
