@@ -239,7 +239,9 @@ export const verifyOTP = async (req, res, next) => {
         user: {
           id: userProfile.id,
           name: userProfile.name,
-          role: userProfile.role
+          role: userProfile.role,
+          phone: userProfile.phone || '',
+          preferred_food: userProfile.preferred_food || ''
         }
       });
     }
@@ -307,7 +309,7 @@ export const verifyOTP = async (req, res, next) => {
       userProfile = newProfile;
     }
 
-    // 4. Return standard session credentials
+    // 4. Return session credentials
     return res.status(200).json({
       status: 'success',
       token: authData.session.access_token,
@@ -315,7 +317,9 @@ export const verifyOTP = async (req, res, next) => {
       user: {
         id: userProfile.id,
         name: userProfile.name,
-        role: userProfile.role
+        role: userProfile.role,
+        phone: userProfile.phone || '',
+        preferred_food: userProfile.preferred_food || ''
       }
     });
   } catch (error) {
@@ -338,3 +342,48 @@ export const getProfile = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Update user profile details
+ * PUT /api/auth/profile
+ */
+export const updateProfile = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { name, phone, preferred_food } = req.body;
+
+    if (!name || !phone || !preferred_food) {
+      return res.status(400).json({ error: 'Name, phone number, and preferred food selection are required' });
+    }
+
+    const supabase = getAdminClient();
+    const { data: updatedUser, error } = await supabase
+      .from('users')
+      .update({
+        name,
+        phone,
+        preferred_food
+      })
+      .eq('id', userId)
+      .select('id, name, email, role, phone, preferred_food')
+      .single();
+
+    if (error) throw error;
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Profile updated successfully',
+      data: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        role: updatedUser.role,
+        phone: updatedUser.phone,
+        preferred_food: updatedUser.preferred_food
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    next(error);
+  }
+};
+

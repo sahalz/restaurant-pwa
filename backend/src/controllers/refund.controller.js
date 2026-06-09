@@ -41,9 +41,18 @@ export const createRefundRequest = async (req, res, next) => {
  */
 export const getRefundRequests = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    let query = supabase
       .from('refund_requests')
       .select('*');
+
+    if (userRole === 'customer') {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

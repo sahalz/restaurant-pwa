@@ -29,9 +29,18 @@ export const createComplaint = async (req, res, next) => {
 
 export const getComplaints = async (req, res, next) => {
   try {
-    const { data, error } = await supabase
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    let query = supabase
       .from('complaints')
       .select('*');
+
+    if (userRole === 'customer') {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "Users" (
   "password" VARCHAR(255) NOT NULL,
   "phone" VARCHAR(20) NOT NULL,
   "role" VARCHAR(50) NOT NULL DEFAULT 'customer',
+  "preferred_food" VARCHAR(100),
   "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -21,7 +22,8 @@ CREATE TABLE IF NOT EXISTS "Addresses" (
   "address" TEXT NOT NULL,
   "city" VARCHAR(100) NOT NULL,
   "state" VARCHAR(100) NOT NULL,
-  "pincode" VARCHAR(20) NOT NULL
+  "pincode" VARCHAR(20) NOT NULL,
+  "landmark" TEXT
 );
 
 -- 3. Categories Table
