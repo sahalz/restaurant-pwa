@@ -5,8 +5,11 @@ import {
   getDeliveryByOrder,
   getRiderDeliveries
 } from '../controllers/delivery.controller.js';
+import { authenticate } from '../middleware/auth.middleware.js';
 
 const router = Router();
+
+router.use(authenticate);
 
 router.post('/assign', assignRider);
 router.patch('/:id/status', updateDeliveryStatus);

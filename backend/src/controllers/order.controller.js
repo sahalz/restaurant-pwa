@@ -122,8 +122,9 @@ export const createOrder = async (req, res, next) => {
 export const getOrders = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const userRole = req.user.role;
 
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from('orders')
       .select(`
         id,
@@ -131,6 +132,11 @@ export const getOrders = async (req, res, next) => {
         status,
         payment_status,
         created_at,
+        users (
+          name,
+          email,
+          phone
+        ),
         order_items (
           id,
           quantity,
@@ -144,9 +150,13 @@ export const getOrders = async (req, res, next) => {
         payments (
           payment_method
         )
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      `);
+
+    if (userRole === 'customer') {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data: orders, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
 
@@ -209,4 +219,72 @@ export const getOrderById = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Update order status (Staff / Admin)
+ * PATCH /api/orders/:id
+ */
+export const updateOrderStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const { data: updatedOrder, error: orderError } = await supabase
+      .from('orders')
+      .update({ status })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (orderError) throw orderError;
+
+    // Check if delivery tracking entry exists
+    const { data: existingTracking, error: selectError } = await supabase
+      .from('delivery_tracking')
+      .select('id')
+      .eq('order_id', id)
+      .maybeSingle();
+
+    if (selectError) throw selectError;
+
+    // Map order status to delivery tracking status
+    let deliveryStatus = 'assigned';
+    if (status === 'preparing') deliveryStatus = 'preparing';
+    else if (status === 'ready' || status === 'ready_for_pickup') deliveryStatus = 'ready';
+    else if (status === 'rider_assigned') deliveryStatus = 'rider_assigned';
+    else if (status === 'out_for_delivery' || status === 'in_transit') deliveryStatus = 'out_for_delivery';
+    else if (status === 'delivered') deliveryStatus = 'delivered';
+
+    if (existingTracking) {
+      const { error: updateError } = await supabase
+        .from('delivery_tracking')
+        .update({
+          delivery_status: deliveryStatus,
+          updated_at: new Date()
+        })
+        .eq('id', existingTracking.id);
+
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('delivery_tracking')
+        .insert({
+          order_id: id,
+          delivery_status: deliveryStatus,
+          updated_at: new Date()
+        });
+
+      if (insertError) throw insertError;
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: updatedOrder
+    });
+  } catch (error) {
+    console.error('Update order status error:', error);
+    next(error);
+  }
+};
+
 

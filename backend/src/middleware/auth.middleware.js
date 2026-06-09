@@ -20,7 +20,7 @@ export const authenticate = async (req, res, next) => {
       
       const { data: profile, error: profileError } = await supabase
         .from('users')
-        .select('name, role, email, phone')
+        .select('name, role, email, phone, preferred_food')
         .eq('id', userId)
         .maybeSingle();
 
@@ -33,7 +33,8 @@ export const authenticate = async (req, res, next) => {
         email: profile.email,
         name: profile.name,
         role: profile.role,
-        phone: profile.phone || ''
+        phone: profile.phone || '',
+        preferred_food: profile.preferred_food || ''
       };
       
       return next();
@@ -49,7 +50,7 @@ export const authenticate = async (req, res, next) => {
     // Fetch details from public.users table to get their role and contact info
     const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('name, role, email, phone')
+      .select('name, role, email, phone, preferred_food')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -61,7 +62,8 @@ export const authenticate = async (req, res, next) => {
       email: profile?.email || user.email,
       name: profile?.name || user.user_metadata?.name || 'User',
       role: profile?.role || user.user_metadata?.role || 'customer',
-      phone: profile?.phone || user.user_metadata?.phone || ''
+      phone: profile?.phone || user.user_metadata?.phone || '',
+      preferred_food: profile?.preferred_food || user.user_metadata?.preferred_food || ''
     };
 
     next();
@@ -69,4 +71,15 @@ export const authenticate = async (req, res, next) => {
     console.error('Authentication Error:', error.message);
     return res.status(401).json({ error: 'Invalid authentication token.' });
   }
+};
+
+/**
+ * Staff Authorization Middleware
+ * Verifies that the authenticated user is a staff member (admin or manager).
+ */
+export const authorizeStaff = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'manager')) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Access denied. Staff privileges required.' });
 };

@@ -7,7 +7,7 @@ import { supabase } from '../config/supabase.js';
 export const createAddress = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { address, city, state, pincode } = req.body;
+    const { address, city, state, pincode, landmark } = req.body;
 
     if (!address) {
       return res.status(400).json({ error: 'Street address is required' });
@@ -20,7 +20,8 @@ export const createAddress = async (req, res, next) => {
         address,
         city,
         state,
-        pincode
+        pincode,
+        landmark
       })
       .select('*')
       .single();
