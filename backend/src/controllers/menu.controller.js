@@ -62,3 +62,91 @@ export const getMenuItems = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Create a new menu item (Staff / Admin)
+ * POST /api/menu
+ */
+export const createMenuItem = async (req, res, next) => {
+  try {
+    const { category_id, name, description, price, image_url, availability } = req.body;
+
+    if (!category_id || !name || price === undefined) {
+      return res.status(400).json({ error: 'Category ID, name, and price are required' });
+    }
+
+    const supabase = getAdminClient();
+    const { data: newItem, error } = await supabase
+      .from('menu_items')
+      .insert({
+        category_id,
+        name: name.trim(),
+        description: description ? description.trim() : null,
+        price: parseFloat(price),
+        image_url: image_url ? image_url.trim() : null,
+        availability: availability !== undefined ? availability : true
+      })
+      .select('*')
+      .single();
+
+    if (error) throw error;
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Menu item created successfully',
+      data: {
+        ...newItem,
+        price: parseFloat(newItem.price)
+      }
+    });
+  } catch (error) {
+    console.error('Create menu item error:', error);
+    next(error);
+  }
+};
+
+/**
+ * Update a menu item (Staff / Admin)
+ * PATCH /api/menu/:id
+ */
+export const updateMenuItem = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, category_id, price, description, image_url, availability } = req.body;
+
+    const supabase = getAdminClient();
+    
+    // Build update object dynamically based on what's passed
+    const updateData = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (category_id !== undefined) updateData.category_id = category_id;
+    if (price !== undefined) updateData.price = parseFloat(price);
+    if (description !== undefined) updateData.description = description ? description.trim() : null;
+    if (image_url !== undefined) updateData.image_url = image_url ? image_url.trim() : null;
+    if (availability !== undefined) updateData.availability = availability;
+
+    const { data: updatedItem, error } = await supabase
+      .from('menu_items')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!updatedItem) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Menu item updated successfully',
+      data: {
+        ...updatedItem,
+        price: parseFloat(updatedItem.price)
+      }
+    });
+  } catch (error) {
+    console.error('Update menu item error:', error);
+    next(error);
+  }
+};

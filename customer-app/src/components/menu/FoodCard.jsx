@@ -1,10 +1,10 @@
 import { FaStar, FaHeart, FaPlus } from 'react-icons/fa';
 
 export const FoodCard = ({ food, onAddToCart }) => {
-  const isUrl = food.image_url && (food.image_url.startsWith('http') || food.image_url.startsWith('/'));
+  const isUrl = food.image_url && (food.image_url.startsWith('http') || food.image_url.startsWith('/') || food.image_url.startsWith('data:'));
 
   return (
-    <div className="food-card">
+    <div className={`food-card ${!food.availability ? 'out-of-stock' : ''}`}>
       <div className="food-card-image" style={{ padding: isUrl ? '0px' : '20px' }}>
         {isUrl ? (
           <img 
@@ -16,6 +16,13 @@ export const FoodCard = ({ food, onAddToCart }) => {
         ) : (
           <span className="food-emoji">{food.image_url || food.image || '🍽️'}</span>
         )}
+        
+        {!food.availability && (
+          <div className="out-of-stock-badge">
+            Out of Stock
+          </div>
+        )}
+
         <button className="wishlist-btn" aria-label="Add to wishlist">
           <FaHeart />
         </button>
@@ -36,7 +43,13 @@ export const FoodCard = ({ food, onAddToCart }) => {
             onClick={() => onAddToCart(food)}
             disabled={!food.availability}
           >
-            <FaPlus /> Add
+            {food.availability ? (
+              <>
+                <FaPlus /> Add
+              </>
+            ) : (
+              'Out of Stock'
+            )}
           </button>
         </div>
       </div>
