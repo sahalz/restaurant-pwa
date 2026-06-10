@@ -20,6 +20,7 @@ export const AddressForm = ({ onSubmit }) => {
       city: '',
       state: '',
       pincode: '',
+      landmark: '',
       deliveryInstructions: '',
     };
   });
@@ -90,6 +91,18 @@ export const AddressForm = ({ onSubmit }) => {
           onChange={handleChange}
           placeholder="123 Main St"
           required
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="landmark">Landmark (Optional)</label>
+        <input
+          type="text"
+          id="landmark"
+          name="landmark"
+          value={formData.landmark || ''}
+          onChange={handleChange}
+          placeholder="e.g. Near Subway, Opp Central Park"
         />
       </div>
 

@@ -80,6 +80,7 @@ export const orderAPI = {
   getOrders: () => api.get('/orders'),
   getOrderById: (orderId) => api.get(`/orders/${orderId}`),
   updateOrderStatus: (orderId, status) => api.patch(`/orders/${orderId}`, { status }),
+  cancelOrder: (orderId) => api.patch(`/orders/${orderId}/cancel`),
 };
 
 // ==================== PAYMENTS ====================

@@ -79,6 +79,7 @@ export const CheckoutPage = () => {
           city: addressData.city,
           state: addressData.state,
           pincode: addressData.pincode,
+          landmark: addressData.landmark,
         });
         
         finalAddressId = addrRes.data.data.id;
@@ -169,7 +170,10 @@ export const CheckoutPage = () => {
                     >
                       <div className="address-info">
                         <p className="address-text">{addr.address}</p>
-                        <p className="address-sub">{addr.city}, {addr.state} - {addr.pincode}</p>
+                        <p className="address-sub">
+                          {addr.landmark && <span className="landmark-tag" style={{ color: '#667eea', fontWeight: 600 }}>({addr.landmark}) </span>}
+                          {addr.city}, {addr.state} - {addr.pincode}
+                        </p>
                       </div>
                       <div className="address-radio">
                         <div className={`radio-circle ${selectedAddressId === addr.id ? 'active' : ''}`}>

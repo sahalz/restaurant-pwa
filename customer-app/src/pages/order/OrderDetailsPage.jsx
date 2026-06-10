@@ -12,6 +12,7 @@ export const OrderDetailsPage = () => {
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [cancellationLoading, setCancellationLoading] = useState(false);
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -33,6 +34,31 @@ export const OrderDetailsPage = () => {
     };
     fetchOrderDetails();
   }, [id]);
+
+  const handleCancelOrder = async () => {
+    if (!window.confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
+      return;
+    }
+
+    setCancellationLoading(true);
+    try {
+      const res = await orderAPI.cancelOrder(id);
+      if (res.data.status === 'success') {
+        alert('Order cancelled successfully.');
+        setOrder(prev => ({
+          ...prev,
+          status: 'cancelled'
+        }));
+      } else {
+        alert(res.data.error || 'Failed to cancel order.');
+      }
+    } catch (err) {
+      console.error('Cancel order error:', err);
+      alert(err.response?.data?.error || 'Failed to cancel order. Please try again.');
+    } finally {
+      setCancellationLoading(false);
+    }
+  };
 
   // Format created_at date
   const formatDate = (dateString) => {
@@ -84,7 +110,7 @@ export const OrderDetailsPage = () => {
 
   // Map backend order structure to UI structure
   const defaultAddressStr = addresses.length > 0
-    ? `${addresses[0].address}, ${addresses[0].city}, ${addresses[0].state} - ${addresses[0].pincode}`
+    ? `${addresses[0].address}${addresses[0].landmark ? ` (Landmark: ${addresses[0].landmark})` : ''}, ${addresses[0].city}, ${addresses[0].state} - ${addresses[0].pincode}`
     : 'Default Delivery Address';
 
   const pm = order.payments?.[0]?.payment_method || 'Paid';
@@ -205,6 +231,19 @@ export const OrderDetailsPage = () => {
                 </span>
               </div>
             </div>
+
+            {uiOrder.status === 'pending' && (
+              <div className="cancel-order-container">
+                <button
+                  className="cancel-order-action-btn"
+                  onClick={handleCancelOrder}
+                  disabled={cancellationLoading}
+                >
+                  {cancellationLoading ? 'Cancelling Order...' : 'Cancel Order'}
+                </button>
+                <p className="cancel-note">Note: You can only cancel an order while it is still pending.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
