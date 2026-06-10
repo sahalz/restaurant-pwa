@@ -64,6 +64,8 @@ export const menuAPI = {
     return api.get('/menu', { params });
   },
   getCategories: () => api.get('/categories'),
+  createMenuItem: (data) => api.post('/menu', data),
+  updateMenuItem: (id, data) => api.patch(`/menu/${id}`, data),
 };
 
 // ==================== CART MANAGEMENT ====================

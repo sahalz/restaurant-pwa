@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { orderAPI, supportAPI } from '../../services/api';
+import { orderAPI, supportAPI, menuAPI } from '../../services/api';
 import { 
   FaClipboardList, FaHeadset, FaExclamationTriangle, 
   FaSignOutAlt, FaSync, FaPhone, FaEnvelope, FaUser 
@@ -9,7 +9,7 @@ import './AdminDashboard.css';
 
 export const AdminDashboard = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'support'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'support' | 'menu'
   const [orders, setOrders] = useState([]);
   
   // Support state
@@ -17,6 +17,21 @@ export const AdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
   const [complaints, setComplaints] = useState([]);
   const [refunds, setRefunds] = useState([]);
+
+  // Menu state
+  const [menuItems, setMenuItems] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [submittingItem, setSubmittingItem] = useState(false);
+  const [itemError, setItemError] = useState('');
+  const [newMenuItem, setNewMenuItem] = useState({
+    name: '',
+    category_id: '',
+    price: '',
+    description: '',
+    image_url: '',
+    availability: true
+  });
   
   // Loading & Action states
   const [loading, setLoading] = useState(true);
@@ -31,17 +46,29 @@ export const AdminDashboard = () => {
     else setRefreshing(true);
     
     try {
-      const [ordersRes, ticketsRes, complaintsRes, refundsRes] = await Promise.all([
+      const [ordersRes, ticketsRes, complaintsRes, refundsRes, menuRes, categoriesRes] = await Promise.all([
         orderAPI.getOrders(),
         supportAPI.getSupportTickets(),
         supportAPI.getComplaints(),
-        supportAPI.getRefundRequests()
+        supportAPI.getRefundRequests(),
+        menuAPI.getMenu(),
+        menuAPI.getCategories()
       ]);
       
       setOrders(ordersRes.data.data || []);
       setTickets(ticketsRes.data.data || []);
       setComplaints(complaintsRes.data.data || []);
       setRefunds(refundsRes.data.data || []);
+      setMenuItems(menuRes.data.data || []);
+      const cats = categoriesRes.data.data || [];
+      setCategories(cats);
+
+      if (cats.length > 0) {
+        setNewMenuItem(prev => ({
+          ...prev,
+          category_id: prev.category_id || cats[0].id
+        }));
+      }
     } catch (error) {
       console.error('Failed to fetch admin dashboard data:', error);
     } finally {
@@ -98,6 +125,104 @@ export const AdminDashboard = () => {
       alert(`Error updating ${type} status`);
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleItemFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setNewMenuItem(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleImageUploadChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('Image file size must be less than 2MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewMenuItem(prev => ({
+          ...prev,
+          image_url: reader.result // Base64 String
+        }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleToggleAvailability = async (itemId, currentAvailability) => {
+    setActionLoadingId(itemId);
+    try {
+      const res = await menuAPI.updateMenuItem(itemId, {
+        availability: !currentAvailability
+      });
+      if (res.data.status === 'success') {
+        setMenuItems(prev => prev.map(item => 
+          item.id === itemId ? { ...item, availability: !currentAvailability } : item
+        ));
+      } else {
+        alert(res.data.error || 'Failed to update stock status.');
+      }
+    } catch (err) {
+      console.error('Failed to toggle stock status:', err);
+      alert('Failed to update stock status.');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleAddMenuItem = async (e) => {
+    e.preventDefault();
+    setItemError('');
+
+    if (!newMenuItem.name.trim()) {
+      setItemError('Name is required');
+      return;
+    }
+    if (!newMenuItem.category_id) {
+      setItemError('Category is required');
+      return;
+    }
+    if (newMenuItem.price === '' || isNaN(parseFloat(newMenuItem.price)) || parseFloat(newMenuItem.price) < 0) {
+      setItemError('Price must be a valid positive number');
+      return;
+    }
+
+    setSubmittingItem(true);
+    try {
+      const res = await menuAPI.createMenuItem({
+        name: newMenuItem.name.trim(),
+        category_id: newMenuItem.category_id,
+        price: parseFloat(newMenuItem.price),
+        description: (newMenuItem.description || '').trim() || null,
+        image_url: (newMenuItem.image_url || '').trim() || null,
+        availability: true // Default to true on creation
+      });
+
+      if (res.data.status === 'success') {
+        alert('Menu item added successfully.');
+        setShowAddForm(false);
+        setNewMenuItem({
+          name: '',
+          category_id: categories[0]?.id || '',
+          price: '',
+          description: '',
+          image_url: '',
+          availability: true
+        });
+        await fetchData(true);
+      } else {
+        setItemError(res.data.error || 'Failed to add menu item.');
+      }
+    } catch (err) {
+      console.error('Failed to add menu item:', err);
+      setItemError(err.response?.data?.error || 'Failed to add menu item. Please try again.');
+    } finally {
+      setSubmittingItem(false);
     }
   };
 
@@ -208,6 +333,12 @@ export const AdminDashboard = () => {
             onClick={() => setActiveTab('support')}
           >
             Customer Support ({activeSupportCount + refunds.filter(r => r.status === 'Pending').length})
+          </button>
+          <button 
+            className={`admin-tab-btn ${activeTab === 'menu' ? 'active' : ''}`}
+            onClick={() => setActiveTab('menu')}
+          >
+            Manage Menu ({menuItems.length})
           </button>
         </div>
 
@@ -539,6 +670,255 @@ export const AdminDashboard = () => {
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Menu Panel */}
+            {activeTab === 'menu' && (
+              <div className="menu-panel">
+                <div className="panel-header">
+                  <h2>Menu Management</h2>
+                  <button 
+                    className="add-item-toggle-btn"
+                    onClick={() => setShowAddForm(prev => !prev)}
+                  >
+                    {showAddForm ? 'Cancel' : '+ Add Menu Item'}
+                  </button>
+                </div>
+
+                {showAddForm && (
+                  <form onSubmit={handleAddMenuItem} className="add-menu-item-form">
+                    <h3>Add New Menu Item</h3>
+                    {itemError && <div className="form-error-msg">{itemError}</div>}
+                    
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="item-name">Item Name *</label>
+                        <input
+                          type="text"
+                          id="item-name"
+                          name="name"
+                          value={newMenuItem.name}
+                          onChange={handleItemFormChange}
+                          placeholder="e.g. Garlic Bread"
+                          required
+                        />
+                      </div>
+                      <div className="form-group">
+                        <label htmlFor="item-price">Price ($) *</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          id="item-price"
+                          name="price"
+                          value={newMenuItem.price}
+                          onChange={handleItemFormChange}
+                          placeholder="e.g. 5.99"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="item-category">Category *</label>
+                        <select
+                          id="item-category"
+                          name="category_id"
+                          value={newMenuItem.category_id}
+                          onChange={handleItemFormChange}
+                          required
+                        >
+                          {categories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="form-group image-upload-group">
+                        <label>Image Selection</label>
+                        <div className="image-input-container">
+                          <label className="file-select-btn file-input-wrapper" style={{ cursor: 'pointer' }}>
+                            Choose Image File
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleImageUploadChange}
+                              className="hidden-file-input"
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          <span className="or-divider">OR</span>
+                          <input
+                            type="text"
+                            name="image_url"
+                            value={(newMenuItem.image_url || '').startsWith('data:') ? '' : newMenuItem.image_url || ''}
+                            onChange={handleItemFormChange}
+                            placeholder="Paste image URL here"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {newMenuItem.image_url && (
+                      <div className="image-preview-wrapper">
+                        <img src={newMenuItem.image_url} alt="Food Preview" className="uploaded-image-preview" />
+                        <button 
+                          type="button" 
+                          className="remove-preview-btn"
+                          onClick={() => setNewMenuItem(prev => ({ ...prev, image_url: '' }))}
+                        >
+                          Remove Image
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="form-group">
+                      <label htmlFor="item-desc">Description</label>
+                      <textarea
+                        id="item-desc"
+                        name="description"
+                        value={newMenuItem.description}
+                        onChange={handleItemFormChange}
+                        placeholder="Provide details about ingredients, allergen notes, portion size..."
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="form-actions">
+                      <button 
+                        type="button" 
+                        className="cancel-form-btn" 
+                        onClick={() => setShowAddForm(false)}
+                        disabled={submittingItem}
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="submit-form-btn"
+                        disabled={submittingItem}
+                      >
+                        {submittingItem ? 'Saving...' : 'Save Food Item'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {menuItems.length > 0 ? (
+                  <div className="menu-categories-grouped-list">
+                    {categories.map(category => {
+                      const itemsInCategory = menuItems.filter(item => item.category_id === category.id);
+                      if (itemsInCategory.length === 0) return null;
+                      
+                      return (
+                        <div key={category.id} className="menu-category-group">
+                          <h3 className="category-section-title">{category.name}</h3>
+                          <div className="menu-items-grid">
+                            {itemsInCategory.map(item => (
+                              <div key={item.id} className="admin-menu-card">
+                                <div className="menu-card-header">
+                                  <div className="menu-card-title-box">
+                                    <h3>{item.name}</h3>
+                                  </div>
+                                </div>
+                                
+                                {item.image_url && (
+                                  <div className="menu-card-img-container">
+                                    <img src={item.image_url} alt={item.name} className="menu-card-img" />
+                                  </div>
+                                )}
+
+                                <div className="menu-card-body">
+                                  {item.description && <p className="menu-card-desc">{item.description}</p>}
+                                  
+                                  <div className="menu-card-info-row">
+                                    <span className="menu-card-price">${parseFloat(item.price).toFixed(2)}</span>
+                                  </div>
+                                  
+                                  <div className="menu-card-stock-control">
+                                    <span className="stock-control-label">Available:</span>
+                                    <label className="switch">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={item.availability} 
+                                        onChange={() => handleToggleAvailability(item.id, item.availability)}
+                                        disabled={actionLoadingId === item.id}
+                                      />
+                                      <span className="slider round"></span>
+                                    </label>
+                                    <span className={`stock-text ${item.availability ? 'in' : 'out'}`}>
+                                      {item.availability ? 'In Stock' : 'Out of Stock'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {/* Uncategorized items fallback */}
+                    {(() => {
+                      const uncategorizedItems = menuItems.filter(item => !categories.some(c => c.id === item.category_id));
+                      if (uncategorizedItems.length === 0) return null;
+
+                      return (
+                        <div className="menu-category-group">
+                          <h3 className="category-section-title">Uncategorized</h3>
+                          <div className="menu-items-grid">
+                            {uncategorizedItems.map(item => (
+                              <div key={item.id} className="admin-menu-card">
+                                <div className="menu-card-header">
+                                  <div className="menu-card-title-box">
+                                    <h3>{item.name}</h3>
+                                  </div>
+                                </div>
+                                
+                                {item.image_url && (
+                                  <div className="menu-card-img-container">
+                                    <img src={item.image_url} alt={item.name} className="menu-card-img" />
+                                  </div>
+                                )}
+
+                                <div className="menu-card-body">
+                                  {item.description && <p className="menu-card-desc">{item.description}</p>}
+                                  
+                                  <div className="menu-card-info-row">
+                                    <span className="menu-card-price">${parseFloat(item.price).toFixed(2)}</span>
+                                  </div>
+                                  
+                                  <div className="menu-card-stock-control">
+                                    <span className="stock-control-label">Available:</span>
+                                    <label className="switch">
+                                      <input 
+                                        type="checkbox" 
+                                        checked={item.availability} 
+                                        onChange={() => handleToggleAvailability(item.id, item.availability)}
+                                        disabled={actionLoadingId === item.id}
+                                      />
+                                      <span className="slider round"></span>
+                                    </label>
+                                    <span className={`stock-text ${item.availability ? 'in' : 'out'}`}>
+                                      {item.availability ? 'In Stock' : 'Out of Stock'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <span className="empty-state-icon">🍔</span>
+                    <h3>No items in menu</h3>
+                    <p>There are no food items created yet. Add one above!</p>
+                  </div>
+                )}
               </div>
             )}
           </>
