@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { WelcomePage } from './pages/user/WelcomePage';
+import { SignupPage } from './pages/user/SignupPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 
 function App() {
@@ -47,6 +48,8 @@ function App() {
           // Unauthenticated or Non-Staff Flow
           <>
             <Route path="/" element={<WelcomePage />} />
+            <Route path="/login" element={<WelcomePage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : (

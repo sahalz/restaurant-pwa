@@ -13,24 +13,36 @@ import {
   FaMapMarkerAlt,
   FaHistory,
   FaHeadset,
-  FaChevronRight
+  FaChevronRight,
+  FaEdit
 } from 'react-icons/fa';
 import './ProfilePage.css';
 
 export const ProfilePage = () => {
-  const { user, logout } = useAuth();
+  const { user, updateProfile, logout } = useAuth();
   const navigate = useNavigate();
   
   const [profile, setProfile] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [loading, setLoading] = useState(true);
   
+  // Profile editing state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    phone: '',
+    preferred_food: 'both'
+  });
+  const [editError, setEditError] = useState('');
+  const [updatingProfile, setUpdatingProfile] = useState(false);
+
   // New address form state
   const [newAddress, setNewAddress] = useState({
     address: '',
     city: '',
     state: '',
-    pincode: ''
+    pincode: '',
+    landmark: ''
   });
   const [submittingAddress, setSubmittingAddress] = useState(false);
   const [error, setError] = useState('');
@@ -48,17 +60,29 @@ export const ProfilePage = () => {
           addressesAPI.getAddresses()
         ]);
         
-        setProfile(profileRes.data.data);
+        const p = profileRes.data.data;
+        setProfile(p);
         setAddresses(addressesRes.data.data || []);
+        setEditForm({
+          name: p?.name || user?.name || '',
+          phone: p?.phone || user?.phone || '',
+          preferred_food: p?.preferred_food || user?.preferred_food || 'both'
+        });
       } catch (error) {
         console.error('Failed to load profile details:', error);
         setError('Failed to fetch details. Please try again.');
         // Fallback profile from context
-        setProfile({
+        const fallback = {
           name: user.name,
           role: user.role,
           email: 'N/A',
           phone: 'N/A'
+        };
+        setProfile(fallback);
+        setEditForm({
+          name: fallback.name,
+          phone: fallback.phone,
+          preferred_food: 'both'
         });
       } finally {
         setLoading(false);
@@ -71,6 +95,55 @@ export const ProfilePage = () => {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleEditChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    setEditError('');
+
+    if (!editForm.name.trim()) {
+      setEditError('Name is required');
+      return;
+    }
+    if (!editForm.phone.trim()) {
+      setEditError('Phone number is required');
+      return;
+    }
+    if (!/^\+?[0-9\s-]{10,15}$/.test(editForm.phone.trim())) {
+      setEditError('Please enter a valid phone number');
+      return;
+    }
+
+    setUpdatingProfile(true);
+    try {
+      const result = await updateProfile({
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim(),
+        preferred_food: editForm.preferred_food
+      });
+
+      if (result.success) {
+        setProfile(prev => ({
+          ...prev,
+          name: editForm.name.trim(),
+          phone: editForm.phone.trim(),
+          preferred_food: editForm.preferred_food
+        }));
+        setIsEditing(false);
+      } else {
+        setEditError(result.error || 'Failed to update profile details');
+      }
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      setEditError('An unexpected error occurred. Please try again.');
+    } finally {
+      setUpdatingProfile(false);
+    }
   };
 
   const handleAddressChange = (e) => {
@@ -91,7 +164,8 @@ export const ProfilePage = () => {
         address: newAddress.address,
         city: newAddress.city,
         state: newAddress.state,
-        pincode: newAddress.pincode
+        pincode: newAddress.pincode,
+        landmark: newAddress.landmark
       });
       
       setAddresses(prev => [...prev, res.data.data]);
@@ -99,7 +173,8 @@ export const ProfilePage = () => {
         address: '',
         city: '',
         state: '',
-        pincode: ''
+        pincode: '',
+        landmark: ''
       });
       
       // Update local storage delivery address copy to reflect latest
@@ -110,6 +185,7 @@ export const ProfilePage = () => {
         city: newAddress.city,
         state: newAddress.state,
         pincode: newAddress.pincode,
+        landmark: newAddress.landmark,
         deliveryInstructions: ''
       }));
     } catch (err) {
@@ -150,36 +226,141 @@ export const ProfilePage = () => {
           <div className="profile-avatar">
             <FaUser className="avatar-icon" />
           </div>
-          <h2>{profile?.name}</h2>
-          <span className="role-tag">{profile?.role.toUpperCase()}</span>
           
-          <div className="profile-info-grid">
-            <div className="info-item">
-              <FaEnvelope className="info-icon" />
-              <div>
-                <span className="info-label">Email Address</span>
-                <span className="info-value">{profile?.email || 'N/A'}</span>
+          {!isEditing ? (
+            <>
+              <h2>{profile?.name}</h2>
+              <span className="role-tag">{profile?.role?.toUpperCase()}</span>
+              
+              <div className="profile-info-grid">
+                <div className="info-item">
+                  <FaEnvelope className="info-icon" />
+                  <div>
+                    <span className="info-label">Email Address</span>
+                    <span className="info-value">{profile?.email || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="info-item">
+                  <FaPhone className="info-icon" />
+                  <div>
+                    <span className="info-label">Phone Number</span>
+                    <span className="info-value">{profile?.phone || 'N/A'}</span>
+                  </div>
+                </div>
+                <div className="info-item">
+                  <FaShieldAlt className="info-icon" />
+                  <div>
+                    <span className="info-label">Security Role</span>
+                    <span className="info-value">{profile?.role}</span>
+                  </div>
+                </div>
+                {profile?.preferred_food && (
+                  <div className="info-item">
+                    <span className="info-icon" style={{ fontSize: '1.25rem' }}>
+                      {profile.preferred_food === 'veg' ? '🟢' : profile.preferred_food === 'non-veg' ? '🔴' : '🟢🔴'}
+                    </span>
+                    <div>
+                      <span className="info-label">Food Preference</span>
+                      <span className="info-value">
+                        {profile.preferred_food === 'veg' ? 'Vegetarian' : profile.preferred_food === 'non-veg' ? 'Non-Vegetarian' : 'Both'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="info-item">
-              <FaPhone className="info-icon" />
-              <div>
-                <span className="info-label">Phone Number</span>
-                <span className="info-value">{profile?.phone || 'N/A'}</span>
+              
+              <div className="profile-actions">
+                <button className="edit-profile-btn" onClick={() => setIsEditing(true)}>
+                  <FaEdit /> Edit Profile
+                </button>
+                <button className="logout-btn" onClick={handleLogout}>
+                  <FaSignOutAlt /> Log Out
+                </button>
               </div>
-            </div>
-            <div className="info-item">
-              <FaShieldAlt className="info-icon" />
-              <div>
-                <span className="info-label">Security Role</span>
-                <span className="info-value">{profile?.role}</span>
+            </>
+          ) : (
+            <form onSubmit={handleEditSubmit} className="edit-profile-form">
+              <h3>Edit Profile Details</h3>
+              
+              {editError && <div className="edit-error">{editError}</div>}
+              
+              <div className="form-group">
+                <label htmlFor="edit-name">Full Name</label>
+                <input
+                  type="text"
+                  id="edit-name"
+                  name="name"
+                  value={editForm.name}
+                  onChange={handleEditChange}
+                  placeholder="John Doe"
+                  required
+                />
               </div>
-            </div>
-          </div>
-          
-          <button className="logout-btn" onClick={handleLogout}>
-            <FaSignOutAlt /> Log Out
-          </button>
+              
+              <div className="form-group">
+                <label htmlFor="edit-phone">Phone Number</label>
+                <input
+                  type="tel"
+                  id="edit-phone"
+                  name="phone"
+                  value={editForm.phone}
+                  onChange={handleEditChange}
+                  placeholder="1234567890"
+                  required
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Food Preference</label>
+                <div className="pref-selector">
+                  <label className={`pref-option-card ${editForm.preferred_food === 'veg' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="preferred_food"
+                      value="veg"
+                      checked={editForm.preferred_food === 'veg'}
+                      onChange={handleEditChange}
+                    />
+                    <span className="pref-option-icon">🟢</span>
+                    <span className="pref-option-text">Veg</span>
+                  </label>
+                  
+                  <label className={`pref-option-card ${editForm.preferred_food === 'non-veg' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="preferred_food"
+                      value="non-veg"
+                      checked={editForm.preferred_food === 'non-veg'}
+                      onChange={handleEditChange}
+                    />
+                    <span className="pref-option-icon">🔴</span>
+                    <span className="pref-option-text">Non-Veg</span>
+                  </label>
+                  
+                  <label className={`pref-option-card ${editForm.preferred_food === 'both' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="preferred_food"
+                      value="both"
+                      checked={editForm.preferred_food === 'both'}
+                      onChange={handleEditChange}
+                    />
+                    <span className="pref-option-icon">🟢🔴</span>
+                    <span className="pref-option-text">Both</span>
+                  </label>
+                </div>
+              </div>
+              
+              <div className="form-actions">
+                <button type="button" className="cancel-edit-btn" onClick={() => setIsEditing(false)} disabled={updatingProfile}>
+                  Cancel
+                </button>
+                <button type="submit" className="save-profile-btn" disabled={updatingProfile}>
+                  {updatingProfile ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         {/* Addresses Section */}
@@ -194,6 +375,9 @@ export const ProfilePage = () => {
                 <div key={addr.id} className="address-item">
                   <div className="address-details">
                     <p className="addr-street">{addr.address}</p>
+                    {addr.landmark && (
+                      <p className="addr-landmark"><strong>Landmark:</strong> {addr.landmark}</p>
+                    )}
                     <p className="addr-city-state">{addr.city}, {addr.state} - {addr.pincode}</p>
                   </div>
                   <button 
@@ -213,9 +397,10 @@ export const ProfilePage = () => {
             <h3>Add New Address</h3>
             <form onSubmit={handleAddAddress} className="add-address-form">
               <div className="form-group">
-                <label>Street Address *</label>
+                <label htmlFor="addr-street">Street Address *</label>
                 <input
                   type="text"
+                  id="addr-street"
                   name="address"
                   value={newAddress.address}
                   onChange={handleAddressChange}
@@ -223,11 +408,23 @@ export const ProfilePage = () => {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label htmlFor="addr-landmark">Landmark (Optional)</label>
+                <input
+                  type="text"
+                  id="addr-landmark"
+                  name="landmark"
+                  value={newAddress.landmark}
+                  onChange={handleAddressChange}
+                  placeholder="e.g. Near Subway, Opp Central Park"
+                />
+              </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>City</label>
+                  <label htmlFor="addr-city">City</label>
                   <input
                     type="text"
+                    id="addr-city"
                     name="city"
                     value={newAddress.city}
                     onChange={handleAddressChange}
@@ -235,9 +432,10 @@ export const ProfilePage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>State</label>
+                  <label htmlFor="addr-state">State</label>
                   <input
                     type="text"
+                    id="addr-state"
                     name="state"
                     value={newAddress.state}
                     onChange={handleAddressChange}
@@ -245,9 +443,10 @@ export const ProfilePage = () => {
                   />
                 </div>
                 <div className="form-group">
-                  <label>PIN Code</label>
+                  <label htmlFor="addr-pincode">PIN Code</label>
                   <input
                     type="text"
+                    id="addr-pincode"
                     name="pincode"
                     value={newAddress.pincode}
                     onChange={handleAddressChange}

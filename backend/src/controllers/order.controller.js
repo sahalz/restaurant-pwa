@@ -287,4 +287,52 @@ export const updateOrderStatus = async (req, res, next) => {
   }
 };
 
+/**
+ * Cancel an order (Customer)
+ * PATCH /api/orders/:id/cancel
+ */
+export const cancelOrder = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { id } = req.params;
+
+    // 1. Fetch order details to verify owner and current status
+    const { data: order, error: fetchError } = await supabase
+      .from('orders')
+      .select('id, user_id, status')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (fetchError) throw fetchError;
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    // 2. Only allow cancellation if order status is 'pending'
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Only pending orders can be cancelled' });
+    }
+
+    // 3. Update order status to 'cancelled'
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (updateError) throw updateError;
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Order cancelled successfully',
+      data: updatedOrder
+    });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    next(error);
+  }
+};
+
 

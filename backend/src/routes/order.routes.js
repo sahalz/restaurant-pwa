@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createOrder, getOrders, getOrderById, updateOrderStatus } from '../controllers/order.controller.js';
+import { createOrder, getOrders, getOrderById, updateOrderStatus, cancelOrder } from '../controllers/order.controller.js';
 import { authenticate, authorizeStaff } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -11,5 +11,6 @@ router.post('/', createOrder);
 router.get('/', getOrders);
 router.get('/:id', getOrderById);
 router.patch('/:id', authorizeStaff, updateOrderStatus);
+router.patch('/:id/cancel', cancelOrder);
 
 export default router;

@@ -43,12 +43,11 @@ export const processPayment = async (req, res, next) => {
 
     if (paymentError) throw paymentError;
 
-    // 3. Update the Order payment status and general status
+    // 3. Update the Order payment status (keep general status as 'pending' until staff accepts it)
     const { error: updateError } = await supabase
       .from('orders')
       .update({
-        payment_status: 'paid',
-        status: 'preparing' // Update order status to preparing upon receipt of payment
+        payment_status: 'paid'
       })
       .eq('id', order_id);
 

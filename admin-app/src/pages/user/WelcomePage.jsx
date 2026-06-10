@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { FaEnvelope, FaKey, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import '../../layouts/AuthLayout.css';
@@ -134,6 +135,15 @@ export const WelcomePage = () => {
               {isLoading ? 'Signing in...' : 'Sign In as Admin'}
             </button>
           </form>
+          
+          <div className="auth-footer" style={{ marginTop: '24px', textAlign: 'center' }}>
+            <p style={{ fontSize: '14px', color: '#666' }}>
+              New staff member?{' '}
+              <Link to="/signup" className="auth-link" style={{ color: '#667eea', fontWeight: 'bold', textDecoration: 'none' }}>
+                Register Staff Account
+              </Link>
+            </p>
+          </div>
         </div>
 
       </div>

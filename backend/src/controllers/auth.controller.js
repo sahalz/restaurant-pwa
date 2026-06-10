@@ -99,7 +99,7 @@ export const login = async (req, res, next) => {
     }
 
     // 1. Authenticate with Supabase Auth using a dedicated auth client
-    const authClient = getAdminClient();
+    const authClient = getAuthClient();
     const { data: authData, error: signInError } = await authClient.auth.signInWithPassword({
       email,
       password
