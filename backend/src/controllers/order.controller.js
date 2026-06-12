@@ -7,7 +7,7 @@ import { supabase } from '../config/supabase.js';
 export const createOrder = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { address_id } = req.body;
+    const { address_id, restaurant_note, delivery_instructions } = req.body;
 
     if (!address_id) {
       return res.status(400).json({ error: 'address_id is required to place an order' });
@@ -58,18 +58,41 @@ export const createOrder = async (req, res, next) => {
     }
 
     // 4. Create the main Order record
-    const { data: newOrder, error: orderInsertError } = await supabase
+    let newOrder;
+    const insertPayload = {
+      user_id: userId,
+      total_amount: totalAmount,
+      status: 'pending',
+      payment_status: 'unpaid'
+    };
+
+    const { data: tryOrder, error: orderInsertError } = await supabase
       .from('orders')
       .insert({
-        user_id: userId,
-        total_amount: totalAmount,
-        status: 'pending',
-        payment_status: 'unpaid'
+        ...insertPayload,
+        restaurant_note: restaurant_note || null,
+        delivery_instructions: delivery_instructions || null
       })
       .select('*')
       .single();
 
-    if (orderInsertError) throw orderInsertError;
+    if (orderInsertError) {
+      if (orderInsertError.code === '42703') {
+        console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Retrying insert without them.');
+        const { data: fallbackOrder, error: fallbackError } = await supabase
+          .from('orders')
+          .insert(insertPayload)
+          .select('*')
+          .single();
+
+        if (fallbackError) throw fallbackError;
+        newOrder = fallbackOrder;
+      } else {
+        throw orderInsertError;
+      }
+    } else {
+      newOrder = tryOrder;
+    }
 
     // 5. Create OrderItems records mapping to the newly created order
     const orderItemsPayload = orderItemsToInsert.map(item => ({
@@ -124,33 +147,37 @@ export const getOrders = async (req, res, next) => {
     const userId = req.user.id;
     const userRole = req.user.role;
 
+    const selectFields = `
+      id,
+      total_amount,
+      status,
+      payment_status,
+      restaurant_note,
+      delivery_instructions,
+      created_at,
+      users (
+        name,
+        email,
+        phone
+      ),
+      order_items (
+        id,
+        quantity,
+        price,
+        menu_item_id,
+        menu_items (
+          name,
+          image_url
+        )
+      ),
+      payments (
+        payment_method
+      )
+    `;
+
     let query = supabase
       .from('orders')
-      .select(`
-        id,
-        total_amount,
-        status,
-        payment_status,
-        created_at,
-        users (
-          name,
-          email,
-          phone
-        ),
-        order_items (
-          id,
-          quantity,
-          price,
-          menu_item_id,
-          menu_items (
-            name,
-            image_url
-          )
-        ),
-        payments (
-          payment_method
-        )
-      `);
+      .select(selectFields);
 
     if (userRole === 'customer') {
       query = query.eq('user_id', userId);
@@ -158,7 +185,52 @@ export const getOrders = async (req, res, next) => {
 
     const { data: orders, error } = await query.order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '42703') {
+        console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Fetching without them.');
+        const fallbackSelect = `
+          id,
+          total_amount,
+          status,
+          payment_status,
+          created_at,
+          users (
+            name,
+            email,
+            phone
+          ),
+          order_items (
+            id,
+            quantity,
+            price,
+            menu_item_id,
+            menu_items (
+              name,
+              image_url
+            )
+          ),
+          payments (
+            payment_method
+          )
+        `;
+        let fallbackQuery = supabase
+          .from('orders')
+          .select(fallbackSelect);
+
+        if (userRole === 'customer') {
+          fallbackQuery = fallbackQuery.eq('user_id', userId);
+        }
+
+        const { data: fallbackOrders, error: fallbackError } = await fallbackQuery.order('created_at', { ascending: false });
+        if (fallbackError) throw fallbackError;
+
+        return res.status(200).json({
+          status: 'success',
+          data: fallbackOrders || []
+        });
+      }
+      throw error;
+    }
 
     return res.status(200).json({
       status: 'success',
@@ -179,33 +251,79 @@ export const getOrderById = async (req, res, next) => {
     const userId = req.user.id;
     const { id } = req.params;
 
+    const selectFields = `
+      id,
+      total_amount,
+      status,
+      payment_status,
+      restaurant_note,
+      delivery_instructions,
+      created_at,
+      order_items (
+        id,
+        quantity,
+        price,
+        menu_item_id,
+        menu_items (
+          name,
+          image_url
+        )
+      ),
+      payments (
+        payment_method
+      )
+    `;
+
     const { data: order, error } = await supabase
       .from('orders')
-      .select(`
-        id,
-        total_amount,
-        status,
-        payment_status,
-        created_at,
-        order_items (
-          id,
-          quantity,
-          price,
-          menu_item_id,
-          menu_items (
-            name,
-            image_url
-          )
-        ),
-        payments (
-          payment_method
-        )
-      `)
+      .select(selectFields)
       .eq('id', id)
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === '42703') {
+        console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Fetching single order without them.');
+        const fallbackSelect = `
+          id,
+          total_amount,
+          status,
+          payment_status,
+          created_at,
+          order_items (
+            id,
+            quantity,
+            price,
+            menu_item_id,
+            menu_items (
+              name,
+              image_url
+            )
+          ),
+          payments (
+            payment_method
+          )
+        `;
+        const { data: fallbackOrder, error: fallbackError } = await supabase
+          .from('orders')
+          .select(fallbackSelect)
+          .eq('id', id)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (fallbackError) throw fallbackError;
+        if (!fallbackOrder) {
+          return res.status(404).json({ error: 'Order not found' });
+        }
+
+        return res.status(200).json({
+          status: 'success',
+          data: fallbackOrder
+        });
+      }
+      throw error;
+    }
+
     if (!order) {
       return res.status(404).json({ error: 'Order not found' });
     }

@@ -75,11 +75,22 @@ export const authenticate = async (req, res, next) => {
 
 /**
  * Staff Authorization Middleware
- * Verifies that the authenticated user is a staff member (admin or manager).
+ * Verifies that the authenticated user is a staff member (staff, manager, or legacy admin).
  */
 export const authorizeStaff = (req, res, next) => {
-  if (req.user && (req.user.role === 'admin' || req.user.role === 'manager')) {
+  if (req.user && (req.user.role === 'staff' || req.user.role === 'manager' || req.user.role === 'admin')) {
     return next();
   }
   return res.status(403).json({ error: 'Access denied. Staff privileges required.' });
+};
+
+/**
+ * Manager Authorization Middleware
+ * Verifies that the authenticated user is a manager (manager or legacy admin).
+ */
+export const authorizeManager = (req, res, next) => {
+  if (req.user && (req.user.role === 'manager' || req.user.role === 'admin')) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Access denied. Manager privileges required.' });
 };
