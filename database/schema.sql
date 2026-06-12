@@ -65,6 +65,8 @@ CREATE TABLE IF NOT EXISTS "Orders" (
   "total_amount" DECIMAL(10,2) NOT NULL,
   "status" VARCHAR(50) NOT NULL DEFAULT 'pending',
   "payment_status" VARCHAR(50) NOT NULL DEFAULT 'unpaid',
+  "restaurant_note" TEXT,
+  "delivery_instructions" JSONB,
   "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

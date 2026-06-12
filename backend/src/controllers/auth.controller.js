@@ -13,12 +13,21 @@ export const register = async (req, res, next) => {
       return res.status(400).json({ error: 'All fields (name, email, password, phone) are required' });
     }
 
-    const userRole = role || 'customer';
+    let userRole = role || 'staff';
 
-    // Enforce that customers must use the OTP flow, not password registration
+    if (userRole === 'admin') {
+      userRole = 'manager';
+    }
+
     if (userRole === 'customer') {
       return res.status(400).json({
-        error: 'Customers must register and log in using Email OTP. Password registration is only for Managers and Admins.'
+        error: 'Customers must register and log in using Email OTP. Password registration is only for Managers and Staff.'
+      });
+    }
+
+    if (userRole !== 'manager' && userRole !== 'staff') {
+      return res.status(400).json({
+        error: 'Invalid role. Registration is only permitted for Staff and Managers.'
       });
     }
 

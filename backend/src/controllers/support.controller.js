@@ -78,3 +78,28 @@ export const updateTicketStatus = async (req, res, next) => {
     next(error);
   }
 };
+
+export const escalateTicket = async (req, res, next) => {
+  req.body.status = 'escalated';
+  return updateTicketStatus(req, res, next);
+};
+
+export const resolveTicket = async (req, res, next) => {
+  req.body.status = 'resolved';
+  return updateTicketStatus(req, res, next);
+};
+
+export const closeTicket = async (req, res, next) => {
+  req.body.status = 'closed';
+  return updateTicketStatus(req, res, next);
+};
+
+export const refundTicket = async (req, res, next) => {
+  req.body.status = 'refunded';
+  return updateTicketStatus(req, res, next);
+};
+
+export const compensateTicket = async (req, res, next) => {
+  req.body.status = 'compensated';
+  return updateTicketStatus(req, res, next);
+};
