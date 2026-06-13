@@ -124,7 +124,7 @@ export const PopularDishes = () => {
                     <span className="dish-reviews">({dish.reviews} reviews)</span>
                   </div>
                   <div className="dish-footer">
-                    <span className="dish-price">${parseFloat(dish.price).toFixed(2)}</span>
+                    <span className="dish-price">₹{parseFloat(dish.price).toFixed(2)}</span>
                     <button 
                       className="dish-add-btn" 
                       onClick={() => handleAdd(dish)}

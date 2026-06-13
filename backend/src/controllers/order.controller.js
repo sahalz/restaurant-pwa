@@ -1,5 +1,49 @@
 import { supabase } from '../config/supabase.js';
 
+// Helper to refund redeemed points back to the user when an order is cancelled
+const refundOrderPoints = async (orderId, userId) => {
+  try {
+    const { data: redeemTx } = await supabase
+      .from('LoyaltyTransactions')
+      .select('*')
+      .eq('order_id', orderId)
+      .eq('transaction_type', 'redeem')
+      .maybeSingle();
+
+    if (redeemTx) {
+      const refundedPoints = Math.abs(redeemTx.points_changed);
+      
+      const { data: loyalty } = await supabase
+        .from('Loyalty')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (loyalty) {
+        await supabase
+          .from('Loyalty')
+          .update({
+            points: loyalty.points + refundedPoints,
+            updated_at: new Date()
+          })
+          .eq('id', loyalty.id);
+
+        await supabase
+          .from('LoyaltyTransactions')
+          .insert({
+            user_id: userId,
+            order_id: orderId,
+            points_changed: refundedPoints,
+            transaction_type: 'cancelled_reversal',
+            description: `Refunded redeemed points from cancelled Order #${orderId.slice(0, 8).toUpperCase()}`
+          });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to refund points on cancellation:', err.message);
+  }
+};
+
 /**
  * Create a new order
  * POST /api/orders
@@ -43,7 +87,7 @@ export const createOrder = async (req, res, next) => {
       return res.status(400).json({ error: 'No items in cart to check out' });
     }
 
-    // 3. Calculate total amount
+    // 3. Calculate total amount and prepare items payload
     let totalAmount = 0;
     const orderItemsToInsert = [];
 
@@ -57,19 +101,67 @@ export const createOrder = async (req, res, next) => {
       });
     }
 
+    // Loyalty Redemption logic
+    const { points_to_redeem } = req.body;
+    let loyaltyDiscount = 0;
+    let redeemedPoints = 0;
+
+    if (points_to_redeem && parseInt(points_to_redeem) > 0) {
+      redeemedPoints = parseInt(points_to_redeem);
+      
+      // Fetch settings
+      const { data: settings } = await supabase
+        .from('LoyaltySettings')
+        .select('*')
+        .eq('id', '00000000-0000-0000-0000-000000000001')
+        .maybeSingle();
+
+      const rupeePerPoint = settings ? parseFloat(settings.rupee_per_point) : 0.5;
+      const minPointsToRedeem = settings ? parseInt(settings.min_points_to_redeem) : 50;
+
+      if (redeemedPoints < minPointsToRedeem) {
+        return res.status(400).json({ error: `Minimum redemption is ${minPointsToRedeem} points` });
+      }
+
+      // Fetch user loyalty record
+      const { data: loyalty, error: loyaltyErr } = await supabase
+        .from('Loyalty')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (loyaltyErr || !loyalty || loyalty.points < redeemedPoints) {
+        return res.status(400).json({ error: 'Insufficient loyalty points balance' });
+      }
+
+      loyaltyDiscount = redeemedPoints * rupeePerPoint;
+      
+      // Cap discount to totalAmount
+      if (loyaltyDiscount > totalAmount) {
+        loyaltyDiscount = totalAmount;
+        redeemedPoints = Math.ceil(loyaltyDiscount / rupeePerPoint);
+      }
+    }
+
     // 4. Create the main Order record
     let newOrder;
     const insertPayload = {
       user_id: userId,
-      total_amount: totalAmount,
+      total_amount: Math.max(0, totalAmount - loyaltyDiscount),
       status: 'pending',
       payment_status: 'unpaid'
+    };
+
+    const loyaltyPayload = {
+      ...insertPayload,
+      loyalty_discount: loyaltyDiscount,
+      points_redeemed: redeemedPoints
     };
 
     const { data: tryOrder, error: orderInsertError } = await supabase
       .from('orders')
       .insert({
-        ...insertPayload,
+        ...loyaltyPayload,
         restaurant_note: restaurant_note || null,
         delivery_instructions: delivery_instructions || null
       })
@@ -77,21 +169,72 @@ export const createOrder = async (req, res, next) => {
       .single();
 
     if (orderInsertError) {
-      if (orderInsertError.code === '42703') {
-        console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Retrying insert without them.');
+      if (orderInsertError.code === '42703' || orderInsertError.code === 'PGRST204') {
+        console.warn('Warning: loyalty or instructions columns missing in orders table. Retrying insert with basic fields.');
         const { data: fallbackOrder, error: fallbackError } = await supabase
           .from('orders')
-          .insert(insertPayload)
+          .insert({
+            ...insertPayload,
+            restaurant_note: restaurant_note || null,
+            delivery_instructions: delivery_instructions || null
+          })
           .select('*')
           .single();
 
-        if (fallbackError) throw fallbackError;
-        newOrder = fallbackOrder;
+        if (fallbackError) {
+          if (fallbackError.code === '42703' || fallbackError.code === 'PGRST204') {
+            const { data: absoluteBasicOrder, error: absoluteBasicError } = await supabase
+              .from('orders')
+              .insert(insertPayload)
+              .select('*')
+              .single();
+
+            if (absoluteBasicError) throw absoluteBasicError;
+            newOrder = absoluteBasicOrder;
+          } else {
+            throw fallbackError;
+          }
+        } else {
+          newOrder = fallbackOrder;
+        }
       } else {
         throw orderInsertError;
       }
     } else {
       newOrder = tryOrder;
+    }
+
+    // Deduct redeemed points from Loyalty table and log transaction
+    if (redeemedPoints > 0 && newOrder) {
+      try {
+        const { data: loyalty } = await supabase
+          .from('Loyalty')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (loyalty) {
+          await supabase
+            .from('Loyalty')
+            .update({
+              points: Math.max(0, loyalty.points - redeemedPoints),
+              updated_at: new Date()
+            })
+            .eq('id', loyalty.id);
+        }
+
+        await supabase
+          .from('LoyaltyTransactions')
+          .insert({
+            user_id: userId,
+            order_id: newOrder.id,
+            points_changed: -redeemedPoints,
+            transaction_type: 'redeem',
+            description: `Redeemed points for ₹${loyaltyDiscount.toFixed(2)} discount on Order #${newOrder.id.slice(0, 8).toUpperCase()}`
+          });
+      } catch (deductErr) {
+        console.error('Loyalty points deduction failed:', deductErr.message);
+      }
     }
 
     // 5. Create OrderItems records mapping to the newly created order
@@ -186,7 +329,7 @@ export const getOrders = async (req, res, next) => {
     const { data: orders, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      if (error.code === '42703') {
+      if (error.code === '42703' || error.code === 'PGRST204') {
         console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Fetching without them.');
         const fallbackSelect = `
           id,
@@ -282,7 +425,7 @@ export const getOrderById = async (req, res, next) => {
       .maybeSingle();
 
     if (error) {
-      if (error.code === '42703') {
+      if (error.code === '42703' || error.code === 'PGRST204') {
         console.warn('Warning: restaurant_note or delivery_instructions column missing in orders table. Fetching single order without them.');
         const fallbackSelect = `
           id,
@@ -347,6 +490,13 @@ export const updateOrderStatus = async (req, res, next) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    // Fetch existing order to check transition
+    const { data: currentOrder } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
     const { data: updatedOrder, error: orderError } = await supabase
       .from('orders')
       .update({ status })
@@ -355,6 +505,73 @@ export const updateOrderStatus = async (req, res, next) => {
       .single();
 
     if (orderError) throw orderError;
+
+    // Earning points logic when marked as delivered
+    if (status === 'delivered' && currentOrder && currentOrder.status !== 'delivered') {
+      try {
+        const { data: settings } = await supabase
+          .from('LoyaltySettings')
+          .select('*')
+          .eq('id', '00000000-0000-0000-0000-000000000001')
+          .maybeSingle();
+
+        const pointsPerRupee = settings ? parseFloat(settings.points_per_rupee) : 0.1;
+        const pointsEarned = Math.floor(parseFloat(updatedOrder.total_amount) * pointsPerRupee);
+
+        if (pointsEarned > 0) {
+          const { data: loyalty } = await supabase
+            .from('Loyalty')
+            .select('*')
+            .eq('user_id', updatedOrder.user_id)
+            .maybeSingle();
+
+          if (loyalty) {
+            await supabase
+              .from('Loyalty')
+              .update({
+                points: loyalty.points + pointsEarned,
+                total_points_earned: loyalty.total_points_earned + pointsEarned,
+                updated_at: new Date()
+              })
+              .eq('id', loyalty.id);
+          } else {
+            await supabase
+              .from('Loyalty')
+              .insert({
+                user_id: updatedOrder.user_id,
+                points: pointsEarned,
+                total_points_earned: pointsEarned
+              });
+          }
+
+          await supabase
+            .from('LoyaltyTransactions')
+            .insert({
+              user_id: updatedOrder.user_id,
+              order_id: id,
+              points_changed: pointsEarned,
+              transaction_type: 'earn',
+              description: `Earned points for Order #${id.slice(0, 8).toUpperCase()} completion`
+            });
+
+          try {
+            await supabase
+              .from('orders')
+              .update({ points_earned: pointsEarned })
+              .eq('id', id);
+          } catch (colErr) {
+            console.warn('Warning: Could not save points_earned on order:', colErr.message);
+          }
+        }
+      } catch (loyaltyErr) {
+        console.error('Failed to process loyalty points earn:', loyaltyErr.message);
+      }
+    }
+
+    // Refund points if marked as cancelled
+    if (status === 'cancelled' && currentOrder && currentOrder.status !== 'cancelled') {
+      await refundOrderPoints(id, updatedOrder.user_id);
+    }
 
     // Check if delivery tracking entry exists
     const { data: existingTracking, error: selectError } = await supabase
@@ -441,6 +658,9 @@ export const cancelOrder = async (req, res, next) => {
       .single();
 
     if (updateError) throw updateError;
+
+    // Refund points on cancellation
+    await refundOrderPoints(id, userId);
 
     return res.status(200).json({
       status: 'success',

@@ -22,6 +22,7 @@ export const AdminDashboard = () => {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [submittingItem, setSubmittingItem] = useState(false);
   const [itemError, setItemError] = useState('');
   const [newMenuItem, setNewMenuItem] = useState({
@@ -221,6 +222,72 @@ export const AdminDashboard = () => {
     } catch (err) {
       console.error('Failed to add menu item:', err);
       setItemError(err.response?.data?.error || 'Failed to add menu item. Please try again.');
+    } finally {
+      setSubmittingItem(false);
+    }
+  };
+
+  const handleEditClick = (item) => {
+    setEditingItem(item);
+    setNewMenuItem({
+      name: item.name,
+      category_id: item.category_id,
+      price: item.price.toString(),
+      description: item.description || '',
+      image_url: item.image_url || '',
+      availability: item.availability
+    });
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSaveEditMenuItem = async (e) => {
+    e.preventDefault();
+    setItemError('');
+
+    if (!newMenuItem.name.trim()) {
+      setItemError('Name is required');
+      return;
+    }
+    if (!newMenuItem.category_id) {
+      setItemError('Category is required');
+      return;
+    }
+    if (newMenuItem.price === '' || isNaN(parseFloat(newMenuItem.price)) || parseFloat(newMenuItem.price) < 0) {
+      setItemError('Price must be a valid positive number');
+      return;
+    }
+
+    setSubmittingItem(true);
+    try {
+      const res = await menuAPI.updateMenuItem(editingItem.id, {
+        name: newMenuItem.name.trim(),
+        category_id: newMenuItem.category_id,
+        price: parseFloat(newMenuItem.price),
+        description: (newMenuItem.description || '').trim() || null,
+        image_url: (newMenuItem.image_url || '').trim() || null,
+        availability: newMenuItem.availability
+      });
+
+      if (res.data.status === 'success') {
+        alert('Menu item updated successfully.');
+        setShowAddForm(false);
+        setEditingItem(null);
+        setNewMenuItem({
+          name: '',
+          category_id: categories[0]?.id || '',
+          price: '',
+          description: '',
+          image_url: '',
+          availability: true
+        });
+        await fetchData(true);
+      } else {
+        setItemError(res.data.error || 'Failed to update menu item.');
+      }
+    } catch (err) {
+      console.error('Failed to update menu item:', err);
+      setItemError(err.response?.data?.error || 'Failed to update menu item. Please try again.');
     } finally {
       setSubmittingItem(false);
     }
@@ -440,7 +507,7 @@ export const AdminDashboard = () => {
                                     <span className="order-item-qty">{item.quantity}x</span>
                                     {item.menu_items?.name || 'Menu Item'}
                                   </span>
-                                  <span>${parseFloat(item.price * item.quantity).toFixed(2)}</span>
+                                  <span>₹{parseFloat(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                               ))}
                             </div>
@@ -493,7 +560,7 @@ export const AdminDashboard = () => {
                           <div className="order-card-footer">
                             <div className="order-total-amount">
                               <label>Total Amount ({paymentMethodStr.toUpperCase()})</label>
-                              ${parseFloat(order.total_amount).toFixed(2)}
+                              ₹{parseFloat(order.total_amount).toFixed(2)}
                             </div>
                             
                             {/* Status actions */}
@@ -677,7 +744,7 @@ export const AdminDashboard = () => {
                         <div key={refund.id} className="support-item-card">
                           <div className="support-item-header">
                             <div className="support-item-title">
-                              <h3>Refund Request: ${parseFloat(refund.amount).toFixed(2)}</h3>
+                              <h3>Refund Request: ₹{parseFloat(refund.amount).toFixed(2)}</h3>
                               <div className="support-item-meta">
                                 <span>Request ID: {refund.id.slice(0, 8).toUpperCase()}</span>
                                 <span>Order ID: {refund.order_id?.slice(0, 8).toUpperCase() || 'N/A'}</span>
@@ -732,15 +799,39 @@ export const AdminDashboard = () => {
                   <h2>Menu Management</h2>
                   <button 
                     className="add-item-toggle-btn"
-                    onClick={() => setShowAddForm(prev => !prev)}
+                    onClick={() => {
+                      if (showAddForm) {
+                        setShowAddForm(false);
+                        setEditingItem(null);
+                        setNewMenuItem({
+                          name: '',
+                          category_id: categories[0]?.id || '',
+                          price: '',
+                          description: '',
+                          image_url: '',
+                          availability: true
+                        });
+                      } else {
+                        setShowAddForm(true);
+                        setEditingItem(null);
+                        setNewMenuItem({
+                          name: '',
+                          category_id: categories[0]?.id || '',
+                          price: '',
+                          description: '',
+                          image_url: '',
+                          availability: true
+                        });
+                      }
+                    }}
                   >
                     {showAddForm ? 'Cancel' : '+ Add Menu Item'}
                   </button>
                 </div>
 
                 {showAddForm && (
-                  <form onSubmit={handleAddMenuItem} className="add-menu-item-form">
-                    <h3>Add New Menu Item</h3>
+                  <form onSubmit={editingItem ? handleSaveEditMenuItem : handleAddMenuItem} className="add-menu-item-form">
+                    <h3>{editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}</h3>
                     {itemError && <div className="form-error-msg">{itemError}</div>}
                     
                     <div className="form-row">
@@ -757,7 +848,7 @@ export const AdminDashboard = () => {
                         />
                       </div>
                       <div className="form-group">
-                        <label htmlFor="item-price">Price ($) *</label>
+                        <label htmlFor="item-price">Price (₹) *</label>
                         <input
                           type="number"
                           step="0.01"
@@ -766,7 +857,7 @@ export const AdminDashboard = () => {
                           name="price"
                           value={newMenuItem.price}
                           onChange={handleItemFormChange}
-                          placeholder="e.g. 5.99"
+                          placeholder="e.g. 299"
                           required
                         />
                       </div>
@@ -841,7 +932,18 @@ export const AdminDashboard = () => {
                       <button 
                         type="button" 
                         className="cancel-form-btn" 
-                        onClick={() => setShowAddForm(false)}
+                        onClick={() => {
+                          setShowAddForm(false);
+                          setEditingItem(null);
+                          setNewMenuItem({
+                            name: '',
+                            category_id: categories[0]?.id || '',
+                            price: '',
+                            description: '',
+                            image_url: '',
+                            availability: true
+                          });
+                        }}
                         disabled={submittingItem}
                       >
                         Cancel
@@ -851,7 +953,7 @@ export const AdminDashboard = () => {
                         className="submit-form-btn"
                         disabled={submittingItem}
                       >
-                        {submittingItem ? 'Saving...' : 'Save Food Item'}
+                        {submittingItem ? 'Saving...' : editingItem ? 'Update Food Item' : 'Save Food Item'}
                       </button>
                     </div>
                   </form>
@@ -885,7 +987,14 @@ export const AdminDashboard = () => {
                                   {item.description && <p className="menu-card-desc">{item.description}</p>}
                                   
                                   <div className="menu-card-info-row">
-                                    <span className="menu-card-price">${parseFloat(item.price).toFixed(2)}</span>
+                                    <span className="menu-card-price">₹{parseFloat(item.price).toFixed(2)}</span>
+                                    <button 
+                                      type="button"
+                                      className="edit-item-btn"
+                                      onClick={() => handleEditClick(item)}
+                                    >
+                                      Edit
+                                    </button>
                                   </div>
                                   
                                   <div className="menu-card-stock-control">
@@ -938,7 +1047,14 @@ export const AdminDashboard = () => {
                                   {item.description && <p className="menu-card-desc">{item.description}</p>}
                                   
                                   <div className="menu-card-info-row">
-                                    <span className="menu-card-price">${parseFloat(item.price).toFixed(2)}</span>
+                                    <span className="menu-card-price">₹{parseFloat(item.price).toFixed(2)}</span>
+                                    <button 
+                                      type="button"
+                                      className="edit-item-btn"
+                                      onClick={() => handleEditClick(item)}
+                                    >
+                                      Edit
+                                    </button>
                                   </div>
                                   
                                   <div className="menu-card-stock-control">

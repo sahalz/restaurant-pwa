@@ -6,16 +6,17 @@ import { supabase } from '../config/supabase.js';
  */
 export const createRefundRequest = async (req, res, next) => {
   try {
-    const { user_id, order_id, reason, amount } = req.body;
+    const userId = req.body.user_id || req.user?.id;
+    const { order_id, reason, amount } = req.body;
 
-    if (!user_id || !order_id) {
+    if (!userId || !order_id) {
       return res.status(400).json({ error: 'user_id and order_id are required' });
     }
 
     const { data, error } = await supabase
       .from('refund_requests')
       .insert({
-        user_id,
+        user_id: userId,
         order_id,
         reason,
         amount,

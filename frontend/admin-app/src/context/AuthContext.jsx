@@ -10,8 +10,8 @@ export const AuthProvider = ({ children }) => {
 
   // Check for existing token on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
+    const savedUser = sessionStorage.getItem('user');
     if (token && savedUser) {
       setUser(JSON.parse(savedUser));
       setIsAuthenticated(true);
@@ -27,8 +27,8 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.login({ email, password });
       const { token, user: userData } = response.data;
       
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData);
       setIsAuthenticated(true);
@@ -88,8 +88,8 @@ export const AuthProvider = ({ children }) => {
       const response = await authAPI.verifyOTP({ email, token });
       const { token: jwtToken, user: userData } = response.data;
 
-      localStorage.setItem('token', jwtToken);
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('token', jwtToken);
+      sessionStorage.setItem('user', JSON.stringify(userData));
 
       setUser(userData);
       setIsAuthenticated(true);
@@ -120,7 +120,7 @@ export const AuthProvider = ({ children }) => {
 
       // Merge updated fields into the existing local user state
       const mergedUser = { ...user, ...updatedUser };
-      localStorage.setItem('user', JSON.stringify(mergedUser));
+      sessionStorage.setItem('user', JSON.stringify(mergedUser));
       setUser(mergedUser);
       return { success: true, data: mergedUser };
     } catch (error) {

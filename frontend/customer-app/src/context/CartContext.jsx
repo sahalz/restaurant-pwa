@@ -40,7 +40,8 @@ export const CartProvider = ({ children }) => {
           id: item.menu_item_id, // align backend ID with frontend item state
           name: item.name,
           price: item.price,
-          quantity: item.quantity
+          quantity: item.quantity,
+          image_url: item.image_url
         }));
         setCartItems(items);
       }

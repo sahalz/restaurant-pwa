@@ -46,7 +46,8 @@ export const getCart = async (req, res, next) => {
         menu_item_id,
         menu_items (
           name,
-          price
+          price,
+          image_url
         )
       `)
       .eq('cart_id', cart.id);
@@ -61,7 +62,8 @@ export const getCart = async (req, res, next) => {
       menu_item_id: item.menu_item_id,
       name: item.menu_items?.name || 'Unknown Item',
       price: item.menu_items?.price ? parseFloat(item.menu_items.price) : 0.00,
-      quantity: item.quantity
+      quantity: item.quantity,
+      image_url: item.menu_items?.image_url || null
     }));
 
     return res.status(200).json({

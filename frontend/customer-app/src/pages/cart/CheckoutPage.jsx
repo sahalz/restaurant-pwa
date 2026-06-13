@@ -2,17 +2,22 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddressForm, PaymentMethod, CheckoutSummary, DeliveryInstructionsModal } from '../../components/checkout';
 import { useCart } from '../../context/CartContext';
-import { addressesAPI, orderAPI, paymentAPI } from '../../services/api';
+import { addressesAPI, orderAPI, paymentAPI, loyaltyAPI } from '../../services/api';
 import './CheckoutPage.css';
 
 export const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { cartItems, clearCart } = useCart();
+  const { cartItems, total, clearCart } = useCart();
   const [selectedPayment, setSelectedPayment] = useState('card');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [addresses, setAddresses] = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('new');
   const [loadingAddresses, setLoadingAddresses] = useState(true);
+
+  // Loyalty reward states
+  const [loyalty, setLoyalty] = useState({ points: 0 });
+  const [loyaltySettings, setLoyaltySettings] = useState({ rupee_per_point: 0.5, min_points_to_redeem: 50 });
+  const [applyLoyalty, setApplyLoyalty] = useState(false);
 
   // Notes and delivery instructions states
   const [restaurantNote, setRestaurantNote] = useState('');
@@ -28,6 +33,27 @@ export const CheckoutPage = () => {
       petAtHome: false
     }
   });
+
+  // Fetch loyalty details on mount
+  useEffect(() => {
+    const fetchLoyalty = async () => {
+      try {
+        const [profileRes, settingsRes] = await Promise.all([
+          loyaltyAPI.getProfile().catch(() => null),
+          loyaltyAPI.getSettings().catch(() => null)
+        ]);
+        if (profileRes?.data?.status === 'success') {
+          setLoyalty(profileRes.data.data);
+        }
+        if (settingsRes?.data?.status === 'success') {
+          setLoyaltySettings(settingsRes.data.data);
+        }
+      } catch (error) {
+        console.error('Failed to load loyalty details:', error);
+      }
+    };
+    fetchLoyalty();
+  }, []);
 
   // Fetch saved addresses from backend on mount
   useEffect(() => {
@@ -68,6 +94,14 @@ export const CheckoutPage = () => {
     const matched = addresses.find(a => a.id === selectedAddressId);
     return matched ? `${matched.address}, ${matched.city}` : 'Selected Address';
   };
+
+  const pointsAvailable = loyalty.points || 0;
+  const isEligibleForRedemption = pointsAvailable >= (loyaltySettings.min_points_to_redeem || 50);
+  const deliveryFee = 2.99;
+  const tax = total * 0.08;
+  const maxPointsNeeded = Math.ceil((total + deliveryFee + tax) / (loyaltySettings.rupee_per_point || 0.5));
+  const pointsToRedeem = applyLoyalty ? Math.min(pointsAvailable, maxPointsNeeded) : 0;
+  const loyaltyDiscount = pointsToRedeem * (loyaltySettings.rupee_per_point || 0.5);
 
   const handlePlaceOrder = async () => {
     if (cartItems.length === 0) {
@@ -129,7 +163,8 @@ export const CheckoutPage = () => {
       const orderRes = await orderAPI.createOrder({
         address_id: finalAddressId,
         restaurant_note: restaurantNote,
-        delivery_instructions: deliveryInstructions
+        delivery_instructions: deliveryInstructions,
+        points_to_redeem: pointsToRedeem
       });
 
       const orderId = orderRes.data.data.order_id;
@@ -144,12 +179,12 @@ export const CheckoutPage = () => {
       }
 
       // Compute order total for confirmation page
-      const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const totalAmountPaid = total + deliveryFee + tax - loyaltyDiscount;
 
       // Success - clear local cart and navigate to confirmation
       clearCart();
       navigate('/order-confirmation', {
-        state: { orderId, total, paymentMethod: selectedPayment }
+        state: { orderId, total: totalAmountPaid, paymentMethod: selectedPayment }
       });
     } catch (error) {
       console.error('Checkout failed:', error);
@@ -303,6 +338,52 @@ export const CheckoutPage = () => {
               </div>
             </div>
 
+            {/* Loyalty Points Redemption Panel */}
+            <div className="loyalty-redemption-section" style={{ background: '#ffffff', borderRadius: '12px', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '1.5rem' }}>🎁</span>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1f2937', margin: 0 }}>Loyalty Rewards</h2>
+              </div>
+              
+              {isEligibleForRedemption ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: '700', color: '#334155', fontSize: '1rem' }}>
+                        Your Balance: {pointsAvailable} Points
+                      </p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                        Worth ₹{(pointsAvailable * (loyaltySettings.rupee_per_point || 0.5)).toFixed(2)} in discounts
+                      </p>
+                    </div>
+                    
+                    <label className="loyalty-toggle-label" style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', fontWeight: '600', color: '#4f46e5' }}>
+                      <input
+                        type="checkbox"
+                        checked={applyLoyalty}
+                        onChange={(e) => setApplyLoyalty(e.target.checked)}
+                        style={{ width: '20px', height: '20px', cursor: 'pointer', accentColor: '#4f46e5' }}
+                      />
+                      Apply Discount
+                    </label>
+                  </div>
+                  
+                  {applyLoyalty && (
+                    <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '8px', padding: '12px 16px', fontSize: '0.9rem', color: '#065f46', fontWeight: '600' }}>
+                      🎉 Redeeming {pointsToRedeem} points for a discount of ₹{loyaltyDiscount.toFixed(2)}!
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '16px', color: '#64748b', fontSize: '0.9rem' }}>
+                  <p style={{ margin: 0, fontWeight: '600' }}>You have {pointsAvailable} loyalty points.</p>
+                  <p style={{ margin: '4px 0 0 0' }}>
+                    A minimum of {loyaltySettings.min_points_to_redeem || 50} points is required to redeem for discounts. Keep ordering to earn rewards! 🍕
+                  </p>
+                </div>
+              )}
+            </div>
+
             <PaymentMethod 
               selectedMethod={selectedPayment}
               onSelect={setSelectedPayment}
@@ -310,7 +391,7 @@ export const CheckoutPage = () => {
           </div>
  
           <div className="checkout-sidebar">
-            <CheckoutSummary />
+            <CheckoutSummary loyaltyDiscount={loyaltyDiscount} />
             <button
               className="place-order-btn"
               onClick={handlePlaceOrder}

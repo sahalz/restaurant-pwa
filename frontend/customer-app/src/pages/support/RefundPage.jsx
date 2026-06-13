@@ -118,7 +118,7 @@ export const RefundPage = () => {
                   const oid = o.id || o.order_id;
                   return (
                     <option key={oid} value={oid}>
-                      #{oid.slice(0, 8).toUpperCase()} — ${(o.total_amount || 0).toFixed(2)}
+                       #{oid.slice(0, 8).toUpperCase()} — ₹{(o.total_amount || 0).toFixed(2)}
                     </option>
                   );
                 })}
@@ -127,7 +127,7 @@ export const RefundPage = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="amount">Refund Amount ($)</label>
+            <label htmlFor="amount">Refund Amount (₹)</label>
             <input
               id="amount"
               type="number"

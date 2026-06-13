@@ -1,4 +1,5 @@
 import { getAdminClient, getAuthClient } from '../config/supabase.js';
+import jwt from 'jsonwebtoken';
 
 /**
  * Register a new user (Restaurant Managers and Admins with email/password)
@@ -137,10 +138,16 @@ export const login = async (req, res, next) => {
     }
 
     // 3. Return session token and user profile
+    const localToken = jwt.sign(
+      { id: profile.id, email: profile.email, role: profile.role },
+      process.env.JWT_SECRET || 'restaurant_pwa_secret_key_jwt_token_signing',
+      { expiresIn: '3650d' }
+    );
+
     return res.status(200).json({
       status: 'success',
-      token: authData.session.access_token,
-      expires_in: authData.session.expires_in,
+      token: localToken,
+      expires_in: 315360000,
       user: {
         id: profile.id,
         name: profile.name,
@@ -319,10 +326,16 @@ export const verifyOTP = async (req, res, next) => {
     }
 
     // 4. Return session credentials
+    const localToken = jwt.sign(
+      { id: userProfile.id, email: userProfile.email, role: userProfile.role },
+      process.env.JWT_SECRET || 'restaurant_pwa_secret_key_jwt_token_signing',
+      { expiresIn: '3650d' }
+    );
+
     return res.status(200).json({
       status: 'success',
-      token: authData.session.access_token,
-      expires_in: authData.session.expires_in,
+      token: localToken,
+      expires_in: 315360000,
       user: {
         id: userProfile.id,
         name: userProfile.name,

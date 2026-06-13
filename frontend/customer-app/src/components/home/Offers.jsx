@@ -12,7 +12,7 @@ export const Offers = () => {
     {
       id: 2,
       title: 'FREE DELIVERY',
-      description: 'Orders above $30',
+      description: 'Orders above ₹30',
       code: 'FREEDEL',
       bgColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
     },

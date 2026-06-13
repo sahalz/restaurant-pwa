@@ -116,4 +116,10 @@ export const addressesAPI = {
   deleteAddress: (id) => api.delete(`/addresses/${id}`),
 };
 
+export const loyaltyAPI = {
+  getProfile: () => api.get('/loyalty/profile'),
+  getSettings: () => api.get('/loyalty/settings'),
+  updateSettings: (data) => api.put('/loyalty/settings', data),
+};
+
 export default api;

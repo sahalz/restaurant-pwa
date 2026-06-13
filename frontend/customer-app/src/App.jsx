@@ -22,6 +22,7 @@ import { NotFoundPage } from './pages/pwa/NotFoundPage';
 import { useAuth } from './context/AuthContext';
 import { WelcomePage } from './pages/user/WelcomePage';
 import { CompleteProfilePage } from './pages/user/CompleteProfilePage';
+import { RewardsPage } from './pages/user/RewardsPage';
 
 function App() {
   const { isAuthenticated, user, loading } = useAuth();
@@ -135,6 +136,14 @@ function App() {
               element={
                 <PrivateRoute>
                   <ProfilePage />
+                </PrivateRoute>
+              }
+            />
+            <Route
+              path="rewards"
+              element={
+                <PrivateRoute>
+                  <RewardsPage />
                 </PrivateRoute>
               }
             />

@@ -69,7 +69,7 @@ export const OrderCard = ({ order }) => {
       <div className="order-card-footer">
         <div className="order-total">
           <span className="total-label">Total:</span>
-          <span className="total-value">${order.total_amount.toFixed(2)}</span>
+          <span className="total-value">₹{order.total_amount.toFixed(2)}</span>
         </div>
         <Link to={`/orders/${order.id}`} className="view-details-btn">
           View Details <FaArrowRight />

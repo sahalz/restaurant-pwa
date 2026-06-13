@@ -171,14 +171,14 @@ export const OrderDetailsPage = () => {
                   </div>
                   <div className="item-details">
                     <h3 className="item-name">{item.name}</h3>
-                    <p className="item-price">${item.price.toFixed(2)}</p>
+                    <p className="item-price">₹{item.price.toFixed(2)}</p>
                   </div>
                   <div className="item-quantity">
                     <span className="quantity-label">Qty:</span>
                     <span className="quantity-value">{item.quantity}</span>
                   </div>
                   <div className="item-total">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ₹{(item.price * item.quantity).toFixed(2)}
                   </div>
                 </div>
               ))}
@@ -261,21 +261,21 @@ export const OrderDetailsPage = () => {
             <div className="summary-card">
               <div className="summary-row">
                 <span className="summary-label">Subtotal</span>
-                <span className="summary-value">${uiOrder.total_amount.toFixed(2)}</span>
+                <span className="summary-value">₹{uiOrder.total_amount.toFixed(2)}</span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">Delivery Fee</span>
-                <span className="summary-value">$2.99</span>
+                <span className="summary-value">₹2.99</span>
               </div>
               <div className="summary-row">
                 <span className="summary-label">Tax</span>
-                <span className="summary-value">${(uiOrder.total_amount * 0.08).toFixed(2)}</span>
+                <span className="summary-value">₹{(uiOrder.total_amount * 0.08).toFixed(2)}</span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-row total-row">
                 <span className="summary-label total-label">Total</span>
                 <span className="summary-value total-value">
-                  ${(uiOrder.total_amount + 2.99 + uiOrder.total_amount * 0.08).toFixed(2)}
+                  ₹{(uiOrder.total_amount + 2.99 + uiOrder.total_amount * 0.08).toFixed(2)}
                 </span>
               </div>
             </div>

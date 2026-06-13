@@ -69,7 +69,7 @@ export const OrderConfirmationPage = () => {
             <div className="detail-content">
               <span className="detail-label">Total Paid</span>
               <span className="detail-value highlight">
-                ${typeof total === 'number' ? total.toFixed(2) : '—'}
+                ₹{typeof total === 'number' ? total.toFixed(2) : '—'}
               </span>
             </div>
           </div>

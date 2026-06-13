@@ -113,7 +113,7 @@ export const FeaturedFoods = () => {
                       <span>{item.deliveryTime}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span className="food-price" style={{ fontWeight: '700', color: '#667eea' }}>${parseFloat(item.price).toFixed(2)}</span>
+                      <span className="food-price" style={{ fontWeight: '700', color: '#667eea' }}>₹{parseFloat(item.price).toFixed(2)}</span>
                       <button 
                         onClick={() => handleAdd(item)}
                         style={{

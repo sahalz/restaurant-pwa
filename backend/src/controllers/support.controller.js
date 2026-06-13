@@ -4,7 +4,12 @@ const supabase = getAdminClient();
 
 export const createTicket = async (req, res, next) => {
   try {
-    const { subject, description, user_id } = req.body;
+    const userId = req.body.user_id || req.user?.id;
+    const { subject, description } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
 
     const { data, error } = await supabase
       .from('support_tickets')
@@ -12,7 +17,7 @@ export const createTicket = async (req, res, next) => {
         {
           subject,
           description,
-          user_id,
+          user_id: userId,
           status: 'open'
         }
       ])

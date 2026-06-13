@@ -16,7 +16,7 @@ const api = axios.create({
 // Request interceptor to add JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,8 +33,8 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Token expired or invalid - clear auth and redirect to login
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -51,8 +51,8 @@ export const authAPI = {
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (data) => api.put('/auth/profile', data),
   logout: () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
   },
 };
 
@@ -120,6 +120,12 @@ export const addressesAPI = {
   getAddresses: () => api.get('/addresses'),
   saveAddress: (data) => api.post('/addresses', data),
   deleteAddress: (id) => api.delete(`/addresses/${id}`),
+};
+
+export const loyaltyAPI = {
+  getProfile: () => api.get('/loyalty/profile'),
+  getSettings: () => api.get('/loyalty/settings'),
+  updateSettings: (data) => api.put('/loyalty/settings', data),
 };
 
 export default api;
