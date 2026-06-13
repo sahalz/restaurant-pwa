@@ -37,7 +37,7 @@ export const FoodCard = ({ food, onAddToCart }) => {
           <span className="review-count">({food.reviews} reviews)</span>
         </div>
         <div className="food-card-footer">
-          <div className="food-price">${food.price}</div>
+          <div className="food-price">₹{food.price}</div>
           <button 
             className="add-to-cart-btn"
             onClick={() => onAddToCart(food)}

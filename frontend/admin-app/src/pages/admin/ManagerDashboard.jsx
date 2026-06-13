@@ -1,19 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { orderAPI, supportAPI } from '../../services/api';
+import { orderAPI, supportAPI, loyaltyAPI } from '../../services/api';
 import { 
   FaChartLine, FaClipboardList, FaHeadset, FaSignOutAlt, 
-  FaSync, FaCalendarAlt, FaDollarSign, FaShoppingBag, 
-  FaPercentage, FaUser, FaPhone, FaEnvelope 
+  FaSync, FaCalendarAlt, FaRupeeSign, FaShoppingBag, 
+  FaPercentage, FaUser, FaPhone, FaEnvelope, FaGift 
 } from 'react-icons/fa';
 import './AdminDashboard.css';
 
 export const ManagerDashboard = () => {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('sales'); // 'sales' | 'orders' | 'support'
+  const [activeTab, setActiveTab] = useState('sales'); // 'sales' | 'orders' | 'support' | 'loyalty'
+  const [supportTab, setSupportTab] = useState('tickets'); // 'tickets' | 'refunds'
   const [orders, setOrders] = useState([]);
   const [tickets, setTickets] = useState([]);
   const [refunds, setRefunds] = useState([]);
+  
+  // Loyalty Settings state
+  const [loyaltySettings, setLoyaltySettings] = useState({ points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 });
+  const [savingLoyaltySettings, setSavingLoyaltySettings] = useState(false);
   
   // Filtering & Date selection
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -28,15 +33,22 @@ export const ManagerDashboard = () => {
     else setRefreshing(true);
     
     try {
-      const [ordersRes, ticketsRes, refundsRes] = await Promise.all([
+      const [ordersRes, ticketsRes, refundsRes, loyaltyRes] = await Promise.all([
         orderAPI.getOrders(),
         supportAPI.getSupportTickets(),
-        supportAPI.getRefundRequests()
+        supportAPI.getRefundRequests(),
+        loyaltyAPI.getSettings().catch(err => {
+          console.warn('Loyalty settings could not be fetched:', err);
+          return { data: { status: 'success', data: { points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 } } };
+        })
       ]);
       
       setOrders(ordersRes.data.data || []);
       setTickets(ticketsRes.data.data || []);
       setRefunds(refundsRes.data.data || []);
+      if (loyaltyRes?.data?.status === 'success') {
+        setLoyaltySettings(loyaltyRes.data.data);
+      }
     } catch (error) {
       console.error('Failed to fetch manager dashboard data:', error);
     } finally {
@@ -59,6 +71,20 @@ export const ManagerDashboard = () => {
     } catch (error) {
       console.error('Failed to approve refund:', error);
       alert('Error approving refund');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUpdateRefundStatus = async (id, status) => {
+    setActionLoadingId(id);
+    try {
+      await supportAPI.updateRefundStatus(id, status);
+      await fetchData(true);
+      alert(`Refund request ${status.toLowerCase()} successfully!`);
+    } catch (error) {
+      console.error('Failed to update refund status:', error);
+      alert('Error updating refund status');
     } finally {
       setActionLoadingId(null);
     }
@@ -88,6 +114,20 @@ export const ManagerDashboard = () => {
       alert('Error closing ticket');
     } finally {
       setActionLoadingId(null);
+    }
+  };
+
+  const handleSaveLoyaltySettings = async (e) => {
+    e.preventDefault();
+    setSavingLoyaltySettings(true);
+    try {
+      await loyaltyAPI.updateSettings(loyaltySettings);
+      alert('Loyalty settings updated successfully!');
+    } catch (error) {
+      console.error('Failed to save loyalty settings:', error);
+      alert(error.response?.data?.error || 'Failed to save loyalty settings. Please make sure the table exists.');
+    } finally {
+      setSavingLoyaltySettings(false);
     }
   };
 
@@ -202,7 +242,13 @@ export const ManagerDashboard = () => {
             className={`admin-tab-btn ${activeTab === 'support' ? 'active' : ''}`}
             onClick={() => setActiveTab('support')}
           >
-            <FaHeadset style={{ marginRight: '6px' }} /> Escalated Support ({escalatedTickets.length})
+            <FaHeadset style={{ marginRight: '6px' }} /> Support ({escalatedTickets.length + refunds.filter(r => r.status === 'Pending').length})
+          </button>
+          <button 
+            className={`admin-tab-btn ${activeTab === 'loyalty' ? 'active' : ''}`}
+            onClick={() => setActiveTab('loyalty')}
+          >
+            <FaGift style={{ marginRight: '6px' }} /> Loyalty Program
           </button>
         </div>
 
@@ -239,11 +285,11 @@ export const ManagerDashboard = () => {
                 <div className="admin-metrics-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', marginBottom: '32px' }}>
                   <div className="metric-card" style={{ borderLeft: '4px solid #10b981' }}>
                     <div className="metric-icon-box" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-                      <FaDollarSign />
+                      <FaRupeeSign />
                     </div>
                     <div className="metric-info">
                       <h4>Daily Revenue</h4>
-                      <div className="metric-number">${metrics.revenue.toFixed(2)}</div>
+                      <div className="metric-number">₹{metrics.revenue.toFixed(2)}</div>
                       <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0 0 0' }}>From completed orders</p>
                     </div>
                   </div>
@@ -265,7 +311,7 @@ export const ManagerDashboard = () => {
                     </div>
                     <div className="metric-info">
                       <h4>Avg Order Value</h4>
-                      <div className="metric-number">${metrics.avgOrderValue.toFixed(2)}</div>
+                      <div className="metric-number">₹{metrics.avgOrderValue.toFixed(2)}</div>
                       <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '4px 0 0 0' }}>Average ticket size</p>
                     </div>
                   </div>
@@ -350,7 +396,7 @@ export const ManagerDashboard = () => {
                               {(order.order_items || []).map(item => (
                                 <div key={item.id} className="order-item-row">
                                   <span>{item.quantity}x {item.menu_items?.name || 'Item'}</span>
-                                  <span>${parseFloat(item.price * item.quantity).toFixed(2)}</span>
+                                  <span>₹{parseFloat(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                               ))}
                             </div>
@@ -359,7 +405,7 @@ export const ManagerDashboard = () => {
                           <div className="order-card-footer">
                             <div className="order-total-amount">
                               <label>Total Price ({paymentMethodStr.toUpperCase()})</label>
-                              ${parseFloat(order.total_amount).toFixed(2)}
+                              ₹{parseFloat(order.total_amount).toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -377,80 +423,243 @@ export const ManagerDashboard = () => {
             )}
 
             {/* Escalated Support Tab */}
+            {/* Support Panel */}
             {activeTab === 'support' && (
               <div className="support-panel">
-                <div className="panel-header">
-                  <h2>Escalated Support Tickets</h2>
-                  <p style={{ color: '#64748b', margin: '4px 0 0 0' }}>Review and resolve issues requiring manager-level refund approval or customer compensation</p>
+                <div className="support-subtabs">
+                  <button 
+                    className={`support-subtab-btn ${supportTab === 'tickets' ? 'active' : ''}`}
+                    onClick={() => setSupportTab('tickets')}
+                  >
+                    Escalated Tickets ({escalatedTickets.length})
+                  </button>
+                  <button 
+                    className={`support-subtab-btn ${supportTab === 'refunds' ? 'active' : ''}`}
+                    onClick={() => setSupportTab('refunds')}
+                  >
+                    Refund Requests ({refunds.length})
+                  </button>
                 </div>
 
                 <div className="support-items-list" style={{ marginTop: '20px' }}>
-                  {escalatedTickets.length > 0 ? (
-                    escalatedTickets.map(ticket => (
-                      <div key={ticket.id} className="support-item-card" style={{ borderLeft: '4px solid #ef4444' }}>
-                        <div className="support-item-header">
-                          <div className="support-item-title">
-                            <h3>{ticket.subject}</h3>
-                            <div className="support-item-meta">
-                              <span>Ticket ID: {ticket.id.slice(0, 8).toUpperCase()}</span>
-                              <span>Customer: {ticket.users?.name || 'Customer User'}</span>
-                              {ticket.users?.phone && <span>Phone: {ticket.users?.phone}</span>}
+                  {/* Escalated Tickets subtab */}
+                  {supportTab === 'tickets' && (
+                    escalatedTickets.length > 0 ? (
+                      escalatedTickets.map(ticket => (
+                        <div key={ticket.id} className="support-item-card" style={{ borderLeft: '4px solid #ef4444' }}>
+                          <div className="support-item-header">
+                            <div className="support-item-title">
+                              <h3>{ticket.subject}</h3>
+                              <div className="support-item-meta">
+                                <span>Ticket ID: {ticket.id.slice(0, 8).toUpperCase()}</span>
+                                <span>Customer: {ticket.users?.name || 'Customer User'}</span>
+                                {ticket.users?.phone && <span>Phone: {ticket.users?.phone}</span>}
+                              </div>
                             </div>
+                            <span 
+                              className="support-badge" 
+                              style={{ 
+                                backgroundColor: statusColors[ticket.status] || '#f3f4f6', 
+                                color: statusTextColors[ticket.status] || '#6b7280',
+                                border: `1.5px solid ${statusTextColors[ticket.status] || '#cbd5e1'}`,
+                                fontWeight: 'bold',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              {ticket.status.toUpperCase()}
+                            </span>
                           </div>
-                          <span 
-                            className="support-badge" 
-                            style={{ 
-                              backgroundColor: statusColors[ticket.status] || '#f3f4f6', 
-                              color: statusTextColors[ticket.status] || '#6b7280',
-                              border: `1.5px solid ${statusTextColors[ticket.status] || '#cbd5e1'}`,
-                              fontWeight: 'bold',
-                              borderRadius: '8px',
-                              padding: '4px 8px',
-                              fontSize: '0.8rem'
-                            }}
-                          >
-                            {ticket.status.toUpperCase()}
-                          </span>
+                          
+                          <p className="support-description" style={{ fontSize: '0.95rem', margin: '12px 0', lineBreak: 'anywhere' }}>{ticket.description}</p>
+                          
+                          <div className="support-actions-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                            <button 
+                              className="action-btn"
+                              style={{ backgroundColor: '#10b981', color: '#fff' }}
+                              onClick={() => handleApproveRefund(ticket.id)}
+                              disabled={actionLoadingId === ticket.id}
+                            >
+                              {actionLoadingId === ticket.id ? 'Processing...' : '💳 Approve Refund'}
+                            </button>
+                            <button 
+                              className="action-btn"
+                              style={{ backgroundColor: '#8b5cf6', color: '#fff' }}
+                              onClick={() => handleProvideCompensation(ticket.id)}
+                              disabled={actionLoadingId === ticket.id}
+                            >
+                              {actionLoadingId === ticket.id ? 'Processing...' : '🎁 Provide Compensation'}
+                            </button>
+                            <button 
+                              className="action-btn"
+                              style={{ backgroundColor: '#4b5563', color: '#fff' }}
+                              onClick={() => handleCloseTicket(ticket.id)}
+                              disabled={actionLoadingId === ticket.id}
+                            >
+                              {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
+                            </button>
+                          </div>
                         </div>
-                        
-                        <p className="support-description" style={{ fontSize: '0.95rem', margin: '12px 0', lineBreak: 'anywhere' }}>{ticket.description}</p>
-                        
-                        <div className="support-actions-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-                          <button 
-                            className="action-btn"
-                            style={{ backgroundColor: '#10b981', color: '#fff' }}
-                            onClick={() => handleApproveRefund(ticket.id)}
-                            disabled={actionLoadingId === ticket.id}
-                          >
-                            {actionLoadingId === ticket.id ? 'Processing...' : '💳 Approve Refund'}
-                          </button>
-                          <button 
-                            className="action-btn"
-                            style={{ backgroundColor: '#8b5cf6', color: '#fff' }}
-                            onClick={() => handleProvideCompensation(ticket.id)}
-                            disabled={actionLoadingId === ticket.id}
-                          >
-                            {actionLoadingId === ticket.id ? 'Processing...' : '🎁 Provide Compensation'}
-                          </button>
-                          <button 
-                            className="action-btn"
-                            style={{ backgroundColor: '#4b5563', color: '#fff' }}
-                            onClick={() => handleCloseTicket(ticket.id)}
-                            disabled={actionLoadingId === ticket.id}
-                          >
-                            {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
-                          </button>
-                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-state">
+                        <span className="empty-state-icon">🎉</span>
+                        <h3>All clear!</h3>
+                        <p>There are no escalated support tickets pending review.</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="empty-state">
-                      <span className="empty-state-icon">🎉</span>
-                      <h3>All clear!</h3>
-                      <p>There are no escalated support tickets pending review.</p>
-                    </div>
+                    )
+                  )}
+
+                  {/* Refund Requests subtab */}
+                  {supportTab === 'refunds' && (
+                    refunds.length > 0 ? (
+                      refunds.map(refund => (
+                        <div key={refund.id} className="support-item-card" style={{ borderLeft: refund.status === 'Pending' ? '4px solid #f59e0b' : '4px solid #cbd5e1' }}>
+                          <div className="support-item-header">
+                            <div className="support-item-title">
+                              <h3>Refund Request: ₹{parseFloat(refund.amount || 0).toFixed(2)}</h3>
+                              <div className="support-item-meta">
+                                <span>Request ID: {refund.id.slice(0, 8).toUpperCase()}</span>
+                                <span>Order ID: {refund.order_id?.slice(0, 8).toUpperCase() || 'N/A'}</span>
+                                <span>Customer ID: {refund.user_id?.slice(0, 8) || 'N/A'}</span>
+                              </div>
+                            </div>
+                            <span 
+                              className="support-badge" 
+                              style={{ 
+                                backgroundColor: refund.status === 'Approved' ? 'rgba(22, 163, 74, 0.1)' : refund.status === 'Pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(107, 114, 128, 0.1)', 
+                                color: refund.status === 'Approved' ? '#16a34a' : refund.status === 'Pending' ? '#f59e0b' : '#6b7280',
+                                border: `1.5px solid ${refund.status === 'Approved' ? '#16a34a' : refund.status === 'Pending' ? '#f59e0b' : '#cbd5e1'}`,
+                                fontWeight: 'bold',
+                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                fontSize: '0.8rem'
+                              }}
+                            >
+                              {refund.status.toUpperCase()}
+                            </span>
+                          </div>
+                          
+                          <p className="support-description" style={{ fontSize: '0.95rem', margin: '12px 0' }}><strong>Reason:</strong> {refund.reason || 'No reason specified'}</p>
+                          
+                          {refund.status === 'Pending' && (
+                            <div className="support-actions-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '20px', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#ef4444', color: '#fff' }}
+                                onClick={() => handleUpdateRefundStatus(refund.id, 'Rejected')}
+                                disabled={actionLoadingId === refund.id}
+                              >
+                                {actionLoadingId === refund.id ? 'Loading...' : 'Reject Refund'}
+                              </button>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#16a34a', color: '#fff' }}
+                                onClick={() => handleUpdateRefundStatus(refund.id, 'Approved')}
+                                disabled={actionLoadingId === refund.id}
+                              >
+                                {actionLoadingId === refund.id ? 'Loading...' : 'Approve Refund'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-state">
+                        <span className="empty-state-icon">💸</span>
+                        <h3>No Refund Requests</h3>
+                        <p>There are no refund requests currently.</p>
+                      </div>
+                    )
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Loyalty Settings Tab */}
+            {activeTab === 'loyalty' && (
+              <div className="loyalty-panel" style={{ background: '#ffffff', borderRadius: '16px', padding: '32px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
+                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                  <h2 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b', margin: 0 }}>Loyalty Rewards Settings</h2>
+                  <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '4px 0 0 0' }}>Configure the rules for earning and redeeming customer loyalty points.</p>
+                </div>
+
+                <form onSubmit={handleSaveLoyaltySettings} style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '600px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '0.95rem', fontWeight: 600, color: '#334155' }}>
+                      Points Earned per Rupee spent (Earning Rule)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <input 
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        value={loyaltySettings.points_per_rupee}
+                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, points_per_rupee: e.target.value })}
+                        style={{ padding: '10px 14px', borderRadius: '8px', border: '2px solid #cbd5e1', fontSize: '1rem', flex: 1, outline: 'none' }}
+                        required
+                      />
+                      <span style={{ fontSize: '0.9rem', color: '#475569', fontWeight: 600 }}>
+                        (e.g. 0.1000 = 1 Point per ₹10 spent)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '0.95rem', fontWeight: 600, color: '#334155' }}>
+                      Rupee Value per Point redeemed (Redemption Rule)
+                    </label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <input 
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={loyaltySettings.rupee_per_point}
+                        onChange={(e) => setLoyaltySettings({ ...loyaltySettings, rupee_per_point: e.target.value })}
+                        style={{ padding: '10px 14px', borderRadius: '8px', border: '2px solid #cbd5e1', fontSize: '1rem', flex: 1, outline: 'none' }}
+                        required
+                      />
+                      <span style={{ fontSize: '0.9rem', color: '#475569', fontWeight: 600 }}>
+                        (e.g. 0.50 = ₹0.50 discount per point)
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <label style={{ fontSize: '0.95rem', fontWeight: 600, color: '#334155' }}>
+                      Minimum Points required to Redeem
+                    </label>
+                    <input 
+                      type="number"
+                      min="0"
+                      value={loyaltySettings.min_points_to_redeem}
+                      onChange={(e) => setLoyaltySettings({ ...loyaltySettings, min_points_to_redeem: parseInt(e.target.value) || 0 })}
+                      style={{ padding: '10px 14px', borderRadius: '8px', border: '2px solid #cbd5e1', fontSize: '1rem', outline: 'none' }}
+                      required
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    disabled={savingLoyaltySettings}
+                    style={{
+                      backgroundColor: '#6366f1',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '14px 20px',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.3s',
+                      boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                      alignSelf: 'flex-start'
+                    }}
+                  >
+                    {savingLoyaltySettings ? 'Saving Settings...' : 'Save Settings'}
+                  </button>
+                </form>
               </div>
             )}
           </>

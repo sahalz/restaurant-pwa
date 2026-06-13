@@ -13,12 +13,15 @@ export const StaffDashboard = () => {
   const [orders, setOrders] = useState([]);
   
   // Support state
+  const [supportTab, setSupportTab] = useState('tickets'); // 'tickets' | 'refunds'
   const [tickets, setTickets] = useState([]);
+  const [refunds, setRefunds] = useState([]);
 
   // Menu state
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
   const [submittingItem, setSubmittingItem] = useState(false);
   const [itemError, setItemError] = useState('');
   const [newMenuItem, setNewMenuItem] = useState({
@@ -43,15 +46,17 @@ export const StaffDashboard = () => {
     else setRefreshing(true);
     
     try {
-      const [ordersRes, ticketsRes, menuRes, categoriesRes] = await Promise.all([
+      const [ordersRes, ticketsRes, refundsRes, menuRes, categoriesRes] = await Promise.all([
         orderAPI.getOrders(),
         supportAPI.getSupportTickets(),
+        supportAPI.getRefundRequests(),
         menuAPI.getMenu(),
         menuAPI.getCategories()
       ]);
       
       setOrders(ordersRes.data.data || []);
       setTickets(ticketsRes.data.data || []);
+      setRefunds(refundsRes.data.data || []);
       setMenuItems(menuRes.data.data || []);
       const cats = categoriesRes.data.data || [];
       setCategories(cats);
@@ -237,6 +242,72 @@ export const StaffDashboard = () => {
     }
   };
 
+  const handleEditClick = (item) => {
+    setEditingItem(item);
+    setNewMenuItem({
+      name: item.name,
+      category_id: item.category_id,
+      price: item.price.toString(),
+      description: item.description || '',
+      image_url: item.image_url || '',
+      availability: item.availability
+    });
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSaveEditMenuItem = async (e) => {
+    e.preventDefault();
+    setItemError('');
+
+    if (!newMenuItem.name.trim()) {
+      setItemError('Name is required');
+      return;
+    }
+    if (!newMenuItem.category_id) {
+      setItemError('Category is required');
+      return;
+    }
+    if (newMenuItem.price === '' || isNaN(parseFloat(newMenuItem.price)) || parseFloat(newMenuItem.price) < 0) {
+      setItemError('Price must be a valid positive number');
+      return;
+    }
+
+    setSubmittingItem(true);
+    try {
+      const res = await menuAPI.updateMenuItem(editingItem.id, {
+        name: newMenuItem.name.trim(),
+        category_id: newMenuItem.category_id,
+        price: parseFloat(newMenuItem.price),
+        description: (newMenuItem.description || '').trim() || null,
+        image_url: (newMenuItem.image_url || '').trim() || null,
+        availability: newMenuItem.availability
+      });
+
+      if (res.data.status === 'success') {
+        alert('Menu item updated successfully.');
+        setShowAddForm(false);
+        setEditingItem(null);
+        setNewMenuItem({
+          name: '',
+          category_id: categories[0]?.id || '',
+          price: '',
+          description: '',
+          image_url: '',
+          availability: true
+        });
+        await fetchData(true);
+      } else {
+        setItemError(res.data.error || 'Failed to update menu item.');
+      }
+    } catch (err) {
+      console.error('Failed to update menu item:', err);
+      setItemError(err.response?.data?.error || 'Failed to update menu item. Please try again.');
+    } finally {
+      setSubmittingItem(false);
+    }
+  };
+
   const getFilteredOrders = () => {
     if (orderFilter === 'all') {
       return orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
@@ -339,7 +410,7 @@ export const StaffDashboard = () => {
             className={`admin-tab-btn ${activeTab === 'support' ? 'active' : ''}`}
             onClick={() => setActiveTab('support')}
           >
-            Support Tickets ({tickets.filter(t => t.status === 'open').length})
+            Support ({tickets.filter(t => t.status === 'open').length + refunds.filter(r => r.status === 'Pending').length})
           </button>
         </div>
 
@@ -404,7 +475,7 @@ export const StaffDashboard = () => {
                                     <span className="order-item-qty">{item.quantity}x</span>
                                     {item.menu_items?.name || 'Menu Item'}
                                   </span>
-                                  <span>${parseFloat(item.price * item.quantity).toFixed(2)}</span>
+                                  <span>₹{parseFloat(item.price * item.quantity).toFixed(2)}</span>
                                 </div>
                               ))}
                             </div>
@@ -457,7 +528,7 @@ export const StaffDashboard = () => {
                           <div className="order-card-footer">
                             <div className="order-total-amount">
                               <label>Total Amount ({paymentMethodStr.toUpperCase()})</label>
-                              ${parseFloat(order.total_amount).toFixed(2)}
+                              ₹{parseFloat(order.total_amount).toFixed(2)}
                             </div>
                             
                             <div className="status-actions-container">
@@ -528,15 +599,39 @@ export const StaffDashboard = () => {
                   <h2>Menu Management</h2>
                   <button 
                     className="add-item-toggle-btn"
-                    onClick={() => setShowAddForm(prev => !prev)}
+                    onClick={() => {
+                      if (showAddForm) {
+                        setShowAddForm(false);
+                        setEditingItem(null);
+                        setNewMenuItem({
+                          name: '',
+                          category_id: categories[0]?.id || '',
+                          price: '',
+                          description: '',
+                          image_url: '',
+                          availability: true
+                        });
+                      } else {
+                        setShowAddForm(true);
+                        setEditingItem(null);
+                        setNewMenuItem({
+                          name: '',
+                          category_id: categories[0]?.id || '',
+                          price: '',
+                          description: '',
+                          image_url: '',
+                          availability: true
+                        });
+                      }
+                    }}
                   >
                     {showAddForm ? 'Cancel' : '+ Add Menu Item'}
                   </button>
                 </div>
 
                 {showAddForm && (
-                  <form onSubmit={handleAddMenuItem} className="add-menu-item-form">
-                    <h3>Add New Menu Item</h3>
+                  <form onSubmit={editingItem ? handleSaveEditMenuItem : handleAddMenuItem} className="add-menu-item-form">
+                    <h3>{editingItem ? 'Edit Menu Item' : 'Add New Menu Item'}</h3>
                     {itemError && <div className="form-error-msg">{itemError}</div>}
                     
                     <div className="form-row">
@@ -553,7 +648,7 @@ export const StaffDashboard = () => {
                         />
                       </div>
                       <div className="form-group">
-                        <label htmlFor="item-price">Price ($) *</label>
+                        <label htmlFor="item-price">Price (₹) *</label>
                         <input
                           type="number"
                           step="0.01"
@@ -562,7 +657,7 @@ export const StaffDashboard = () => {
                           name="price"
                           value={newMenuItem.price}
                           onChange={handleItemFormChange}
-                          placeholder="e.g. 5.99"
+                          placeholder="e.g. 299"
                           required
                         />
                       </div>
@@ -637,7 +732,18 @@ export const StaffDashboard = () => {
                       <button 
                         type="button" 
                         className="cancel-form-btn" 
-                        onClick={() => setShowAddForm(false)}
+                        onClick={() => {
+                          setShowAddForm(false);
+                          setEditingItem(null);
+                          setNewMenuItem({
+                            name: '',
+                            category_id: categories[0]?.id || '',
+                            price: '',
+                            description: '',
+                            image_url: '',
+                            availability: true
+                          });
+                        }}
                         disabled={submittingItem}
                       >
                         Cancel
@@ -647,7 +753,7 @@ export const StaffDashboard = () => {
                         className="submit-form-btn"
                         disabled={submittingItem}
                       >
-                        {submittingItem ? 'Saving...' : 'Save Food Item'}
+                        {submittingItem ? 'Saving...' : editingItem ? 'Update Food Item' : 'Save Food Item'}
                       </button>
                     </div>
                   </form>
@@ -680,7 +786,14 @@ export const StaffDashboard = () => {
                                 <div className="menu-card-body">
                                   {item.description && <p className="menu-card-desc">{item.description}</p>}
                                   <div className="menu-card-info-row">
-                                    <span className="menu-card-price">${parseFloat(item.price).toFixed(2)}</span>
+                                    <span className="menu-card-price">₹{parseFloat(item.price).toFixed(2)}</span>
+                                    <button 
+                                      type="button"
+                                      className="edit-item-btn"
+                                      onClick={() => handleEditClick(item)}
+                                    >
+                                      Edit
+                                    </button>
                                   </div>
                                   
                                   <div className="menu-card-stock-control">
@@ -719,78 +832,137 @@ export const StaffDashboard = () => {
             {/* Support Panel */}
             {activeTab === 'support' && (
               <div className="support-panel">
-                <div className="panel-header">
-                  <h2>Support Ticket Management</h2>
+                <div className="support-subtabs">
+                  <button 
+                    className={`support-subtab-btn ${supportTab === 'tickets' ? 'active' : ''}`}
+                    onClick={() => setSupportTab('tickets')}
+                  >
+                    Support Tickets ({tickets.length})
+                  </button>
+                  <button 
+                    className={`support-subtab-btn ${supportTab === 'refunds' ? 'active' : ''}`}
+                    onClick={() => setSupportTab('refunds')}
+                  >
+                    Refund Requests ({refunds.length})
+                  </button>
                 </div>
 
-                <div className="support-items-list">
-                  {tickets.length > 0 ? (
-                    tickets.map(ticket => (
-                      <div key={ticket.id} className="support-item-card">
-                        <div className="support-item-header">
-                          <div className="support-item-title">
-                            <h3>{ticket.subject}</h3>
-                            <div className="support-item-meta">
-                              <span>Ticket ID: {ticket.id.slice(0, 8).toUpperCase()}</span>
-                              <span>Customer: {ticket.users?.name || 'Customer User'}</span>
-                              {ticket.users?.email && <span>Email: {ticket.users?.email}</span>}
+                <div className="support-items-list" style={{ marginTop: '20px' }}>
+                  {supportTab === 'tickets' && (
+                    tickets.length > 0 ? (
+                      tickets.map(ticket => (
+                        <div key={ticket.id} className="support-item-card">
+                          <div className="support-item-header">
+                            <div className="support-item-title">
+                              <h3>{ticket.subject}</h3>
+                              <div className="support-item-meta">
+                                <span>Ticket ID: {ticket.id.slice(0, 8).toUpperCase()}</span>
+                                <span>Customer: {ticket.users?.name || 'Customer User'}</span>
+                                {ticket.users?.email && <span>Email: {ticket.users?.email}</span>}
+                              </div>
                             </div>
+                            <span className={`support-badge ${ticket.status}`}>
+                              {ticket.status}
+                            </span>
                           </div>
-                          <span className={`support-badge ${ticket.status}`}>
-                            {ticket.status}
-                          </span>
+                          
+                          <p className="support-description">{ticket.description}</p>
+                          
+                          {ticket.status === 'open' && (
+                            <div className="support-actions-row" style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#16a34a' }}
+                                onClick={() => handleResolveTicket(ticket.id)}
+                                disabled={actionLoadingId === ticket.id}
+                              >
+                                {actionLoadingId === ticket.id ? 'Processing...' : '✓ Resolve Basic Issue'}
+                              </button>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#ef4444' }}
+                                onClick={() => handleEscalateTicket(ticket.id)}
+                                disabled={actionLoadingId === ticket.id}
+                              >
+                                {actionLoadingId === ticket.id ? 'Processing...' : '⚠️ Escalate to Manager'}
+                              </button>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#4b5563' }}
+                                onClick={() => handleCloseTicket(ticket.id)}
+                                disabled={actionLoadingId === ticket.id}
+                              >
+                                {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
+                              </button>
+                            </div>
+                          )}
+                          {ticket.status === 'resolved' && (
+                            <div className="support-actions-row" style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
+                              <button 
+                                className="action-btn"
+                                style={{ backgroundColor: '#4b5563' }}
+                                onClick={() => handleCloseTicket(ticket.id)}
+                                disabled={actionLoadingId === ticket.id}
+                              >
+                                {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
+                              </button>
+                            </div>
+                          )}
                         </div>
-                        
-                        <p className="support-description">{ticket.description}</p>
-                        
-                        {ticket.status === 'open' && (
-                          <div className="support-actions-row" style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                            <button 
-                              className="action-btn"
-                              style={{ backgroundColor: '#16a34a' }}
-                              onClick={() => handleResolveTicket(ticket.id)}
-                              disabled={actionLoadingId === ticket.id}
-                            >
-                              {actionLoadingId === ticket.id ? 'Processing...' : '✓ Resolve Basic Issue'}
-                            </button>
-                            <button 
-                              className="action-btn"
-                              style={{ backgroundColor: '#ef4444' }}
-                              onClick={() => handleEscalateTicket(ticket.id)}
-                              disabled={actionLoadingId === ticket.id}
-                            >
-                              {actionLoadingId === ticket.id ? 'Processing...' : '⚠️ Escalate to Manager'}
-                            </button>
-                            <button 
-                              className="action-btn"
-                              style={{ backgroundColor: '#4b5563' }}
-                              onClick={() => handleCloseTicket(ticket.id)}
-                              disabled={actionLoadingId === ticket.id}
-                            >
-                              {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
-                            </button>
-                          </div>
-                        )}
-                        {ticket.status === 'resolved' && (
-                          <div className="support-actions-row" style={{ display: 'flex', gap: '12px', marginTop: '16px' }}>
-                            <button 
-                              className="action-btn"
-                              style={{ backgroundColor: '#4b5563' }}
-                              onClick={() => handleCloseTicket(ticket.id)}
-                              disabled={actionLoadingId === ticket.id}
-                            >
-                              {actionLoadingId === ticket.id ? 'Processing...' : 'Close Ticket'}
-                            </button>
-                          </div>
-                        )}
+                      ))
+                    ) : (
+                      <div className="empty-state">
+                        <span className="empty-state-icon">🎫</span>
+                        <h3>No Support Tickets</h3>
+                        <p>There are no customer support tickets filed currently.</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="empty-state">
-                      <span className="empty-state-icon">🎫</span>
-                      <h3>No Support Tickets</h3>
-                      <p>There are no customer support tickets filed currently.</p>
-                    </div>
+                    )
+                  )}
+
+                  {supportTab === 'refunds' && (
+                    <>
+                      <div style={{ background: '#eff6ff', color: '#1e40af', padding: '12px 16px', borderRadius: '8px', border: '1.5px solid #bfdbfe', fontSize: '0.875rem', fontWeight: '500', marginBottom: '12px' }}>
+                        ℹ️ Standard staff members can only view refund requests. Manager privileges are required to approve or reject them.
+                      </div>
+                      {refunds.length > 0 ? (
+                        refunds.map(refund => (
+                          <div key={refund.id} className="support-item-card" style={{ borderLeft: refund.status === 'Pending' ? '4px solid #f59e0b' : '4px solid #cbd5e1' }}>
+                            <div className="support-item-header">
+                              <div className="support-item-title">
+                                <h3>Refund Request: ₹{parseFloat(refund.amount || 0).toFixed(2)}</h3>
+                                <div className="support-item-meta">
+                                  <span>Request ID: {refund.id.slice(0, 8).toUpperCase()}</span>
+                                  <span>Order ID: {refund.order_id?.slice(0, 8).toUpperCase() || 'N/A'}</span>
+                                  <span>Customer ID: {refund.user_id?.slice(0, 8) || 'N/A'}</span>
+                                </div>
+                              </div>
+                              <span 
+                                className="support-badge" 
+                                style={{ 
+                                  backgroundColor: refund.status === 'Approved' ? 'rgba(22, 163, 74, 0.1)' : refund.status === 'Pending' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(107, 114, 128, 0.1)', 
+                                  color: refund.status === 'Approved' ? '#16a34a' : refund.status === 'Pending' ? '#f59e0b' : '#6b7280',
+                                  border: `1.5px solid ${refund.status === 'Approved' ? '#16a34a' : refund.status === 'Pending' ? '#f59e0b' : '#cbd5e1'}`,
+                                  fontWeight: 'bold',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                {refund.status.toUpperCase()}
+                              </span>
+                            </div>
+                            
+                            <p className="support-description"><strong>Reason:</strong> {refund.reason || 'No reason specified'}</p>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="empty-state">
+                          <span className="empty-state-icon">💸</span>
+                          <h3>No Refund Requests</h3>
+                          <p>There are no refund requests currently.</p>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

@@ -2,12 +2,17 @@ import { supabase } from '../config/supabase.js';
 
 export const createComplaint = async (req, res, next) => {
   try {
-    const { user_id, order_id, issue_type, description } = req.body;
+    const userId = req.body.user_id || req.user?.id;
+    const { order_id, issue_type, description } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
 
     const { data, error } = await supabase
       .from('complaints')
       .insert({
-        user_id,
+        user_id: userId,
         order_id,
         issue_type,
         description,

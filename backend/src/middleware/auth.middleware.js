@@ -1,8 +1,9 @@
+import jwt from 'jsonwebtoken';
 import { supabase } from '../config/supabase.js';
 
 /**
  * Authentication Middleware
- * Validates the Authorization Bearer token using Supabase Auth.
+ * Validates the Authorization Bearer token using custom JWT verification or Supabase Auth.
  */
 export const authenticate = async (req, res, next) => {
   try {
@@ -40,30 +41,40 @@ export const authenticate = async (req, res, next) => {
       return next();
     }
 
-    // Verify token using Supabase Auth
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
-      return res.status(401).json({ error: 'Invalid or expired authentication token.' });
+    // Verify token using custom local secret first, fallback to Supabase
+    let payload;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET || 'restaurant_pwa_secret_key_jwt_token_signing');
+    } catch (err) {
+      // Fallback: Check if it is a Supabase token
+      const { data: { user: sbUser }, error } = await supabase.auth.getUser(token);
+      if (error || !sbUser) {
+        return res.status(401).json({ error: 'Invalid or expired authentication token.' });
+      }
+      payload = { 
+        id: sbUser.id,
+        email: sbUser.email,
+        role: sbUser.user_metadata?.role || 'customer'
+      };
     }
 
     // Fetch details from public.users table to get their role and contact info
     const { data: profile, error: profileError } = await supabase
       .from('users')
       .select('name, role, email, phone, preferred_food')
-      .eq('id', user.id)
+      .eq('id', payload.id)
       .maybeSingle();
 
     if (profileError) throw profileError;
 
     // Set user payload on request object
     req.user = {
-      id: user.id,
-      email: profile?.email || user.email,
-      name: profile?.name || user.user_metadata?.name || 'User',
-      role: profile?.role || user.user_metadata?.role || 'customer',
-      phone: profile?.phone || user.user_metadata?.phone || '',
-      preferred_food: profile?.preferred_food || user.user_metadata?.preferred_food || ''
+      id: payload.id,
+      email: profile?.email || payload.email || '',
+      name: profile?.name || 'User',
+      role: profile?.role || payload.role || 'customer',
+      phone: profile?.phone || '',
+      preferred_food: profile?.preferred_food || ''
     };
 
     next();

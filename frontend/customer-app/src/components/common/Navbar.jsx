@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { FaHome, FaUser, FaShoppingCart, FaBars, FaTimes, FaSignInAlt } from 'react-icons/fa';
+import { FaHome, FaUser, FaShoppingCart, FaBars, FaTimes, FaSignInAlt, FaGift } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
@@ -13,6 +13,7 @@ export const Navbar = () => {
   const navItems = [
     { path: '/', label: 'Home', icon: FaHome },
     { path: '/menu', label: 'Menu', icon: FaBars },
+    ...(isAuthenticated ? [{ path: '/rewards', label: 'Rewards', icon: FaGift }] : [])
   ];
 
   const isActive = (path) => {
