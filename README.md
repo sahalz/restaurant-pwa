@@ -24,7 +24,8 @@ A Progressive Web Application (PWA) designed for restaurants. This project featu
 The backend utilizes **Supabase** (PostgreSQL) to store application data.
 
 1. **Schema Initialization:** Execute the SQL commands in [schema.sql](file:///d:/Projects/restaurant-pwa/database/schema.sql) and [update_schema.sql](file:///d:/Projects/restaurant-pwa/database/update_schema.sql) in your Supabase database.
-2. **Seed Data:** Execute the queries in [seed.sql](file:///d:/Projects/restaurant-pwa/database/seed.sql) to pre-populate categories and initial menu items (Pizzas, Burgers, Drinks, Desserts).
+2. **Loyalty Program Migration:** Execute the SQL commands in [loyalty.sql](file:///d:/Projects/restaurant-pwa/database/loyalty.sql) to set up loyalty program tables (`Loyalty`, `LoyaltySettings`, `LoyaltyTransactions`) and configure points tracking fields.
+3. **Seed Data:** Execute the queries in [seed.sql](file:///d:/Projects/restaurant-pwa/database/seed.sql) to pre-populate categories and initial menu items (Pizzas, Burgers, Drinks, Desserts).
 
 ---
 
@@ -115,4 +116,7 @@ The system uses role-based access validation on both frontend and backend to sec
 | **Refunds** | `/api/refunds` | `POST` | Customer | Request a refund for an order |
 | | `/api/refunds` | `GET` | Authenticated | Retrieve customer's requests or all requests (Staff / Manager) |
 | | `/api/refunds/:id` | `PATCH` | Manager | Approve or reject refund request |
+| **Loyalty** | `/api/loyalty/profile` | `GET` | Customer | Retrieve customer loyalty balance and transaction log history |
+| | `/api/loyalty/settings` | `GET` | Authenticated | Retrieve active loyalty program points conversion configuration |
+| | `/api/loyalty/settings` | `PUT` | Manager | Update loyalty program conversion and redemption rules |
 | **Payments** | `/api/payments/process` | `POST` | Customer | Process simulated payment |
