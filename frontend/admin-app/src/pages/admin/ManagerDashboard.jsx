@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { orderAPI, supportAPI, loyaltyAPI, offersAPI } from '../../services/api';
+import { NotificationBell } from '../../components/common';
 import {
   FaChartLine, FaClipboardList, FaHeadset, FaSignOutAlt,
   FaSync, FaCalendarAlt, FaRupeeSign, FaShoppingBag,
@@ -78,6 +79,23 @@ export const ManagerDashboard = () => {
 
   useEffect(() => {
     fetchData();
+
+    const handleSwitchTab = (e) => {
+      setActiveTab(e.detail);
+    };
+
+    const handleNotificationReceived = (e) => {
+      // Silently refresh the dashboard data when a notification is received
+      fetchData(true);
+    };
+
+    window.addEventListener('switch-tab', handleSwitchTab);
+    window.addEventListener('notification-received', handleNotificationReceived);
+
+    return () => {
+      window.removeEventListener('switch-tab', handleSwitchTab);
+      window.removeEventListener('notification-received', handleNotificationReceived);
+    };
   }, []);
 
   const handleApproveRefund = async (ticketId) => {
@@ -326,6 +344,7 @@ export const ManagerDashboard = () => {
           <div className="admin-welcome-text">
             Logged in as: <strong>{user?.name || 'Manager User'}</strong> (<span style={{textTransform:'capitalize'}}>{user?.role}</span>)
           </div>
+          <NotificationBell />
           <button 
             className={`refresh-btn ${refreshing ? 'spinning' : ''}`}
             onClick={() => fetchData(true)}

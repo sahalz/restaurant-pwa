@@ -86,20 +86,9 @@ export const CompleteProfilePage = () => {
 
   return (
     <>
-      <div className="auth-page" style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        width: '100%',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px',
-        boxSizing: 'border-box'
+      <div className="auth-form-view" style={{
+        animation: 'authSlideUp 0.4s ease-out forwards'
       }}>
-        <div className="auth-container" style={{
-          maxWidth: '600px',
-          animation: 'slideUp 0.4s ease-out forwards'
-        }}>
         
         <div className="auth-header">
           <span className="onboard-badge">🚀 Onboarding</span>
@@ -315,9 +304,21 @@ export const CompleteProfilePage = () => {
           color: #374151;
           margin: 0;
         }
+        .auth-form-view {
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
+        .auth-form {
+          width: 100%;
+          max-width: 100%;
+          box-sizing: border-box;
+        }
         .onboard-row {
           display: flex;
           gap: 16px;
+          width: 100%;
+          box-sizing: border-box;
         }
         @media (max-width: 640px) {
           .onboard-row {
@@ -327,9 +328,11 @@ export const CompleteProfilePage = () => {
         }
         .flex-2 {
           flex: 2;
+          min-width: 0;
         }
         .flex-1 {
           flex: 1;
+          min-width: 0;
         }
         .preference-options {
           display: grid;
@@ -419,7 +422,6 @@ export const CompleteProfilePage = () => {
           padding-left: 14px !important;
         }
       `}</style>
-      </div>
     </>
   );
 };

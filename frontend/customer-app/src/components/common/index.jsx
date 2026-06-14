@@ -6,3 +6,4 @@ export { Navbar } from './Navbar';
 export { Footer } from './Footer';
 export { MobileBottomNav } from './MobileBottomNav';
 export { PrivateRoute } from './PrivateRoute';
+export { NotificationBell } from './NotificationBell';

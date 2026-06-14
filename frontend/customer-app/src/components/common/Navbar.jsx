@@ -3,6 +3,7 @@ import { FaHome, FaUser, FaShoppingCart, FaBars, FaTimes, FaSignInAlt, FaGift } 
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
+import { NotificationBell } from './NotificationBell';
 
 export const Navbar = () => {
   const location = useLocation();
@@ -60,6 +61,8 @@ export const Navbar = () => {
 
         {/* Right Side Actions */}
         <div className="navbar-actions">
+          {isAuthenticated && <NotificationBell />}
+
           {/* Cart Icon with Count */}
           <Link to="/cart" className="navbar-cart">
             <FaShoppingCart size={24} />

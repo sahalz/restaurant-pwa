@@ -25,3 +25,18 @@ WHERE o.status = 'delivered'
   AND o.created_at >= NOW() - INTERVAL '30 days'
 GROUP BY mi.id, c.name
 ORDER BY total_ordered DESC;
+
+-- Create notifications table
+CREATE TABLE IF NOT EXISTS "notifications" (
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  "user_id" UUID REFERENCES "Users"("id") ON DELETE CASCADE,
+  "title" VARCHAR(255) NOT NULL,
+  "message" TEXT NOT NULL,
+  "type" VARCHAR(50) NOT NULL, -- 'order_status', 'loyalty', 'support', 'promo'
+  "reference_id" UUID,         -- order_id, support_ticket_id, etc.
+  "is_read" BOOLEAN NOT NULL DEFAULT FALSE,
+  "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index for performance
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON "notifications"("user_id");

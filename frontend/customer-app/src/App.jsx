@@ -80,7 +80,9 @@ function App() {
         ) : isProfileIncomplete ? (
           // Profile Completion Flow
           <>
-            <Route path="/" element={<CompleteProfilePage />} />
+            <Route element={<AuthLayout />}>
+              <Route path="/" element={<CompleteProfilePage />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </>
         ) : (

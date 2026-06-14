@@ -30,21 +30,21 @@ gantt
 ### Week 1: Core Architecture & Crucial Workflows
 Focuses on scaffolding the systems, setting up databases/servers, authentication, and core ordering flows.
 
-- [ ] **Database Design**
+- [x] **Database Design**
   - Schema creation, indexing, relationships, and migrations setup.
-- [ ] **API Design**
+- [x] **API Design**
   - Definition of REST endpoints, schemas, payloads, and API contracts.
-- [ ] **Frontend Setup**
+- [x] **Frontend Setup**
   - Framework initialization (Vite + React), styling system configuration, router, and basic layout structure.
-- [ ] **Backend Setup**
+- [x] **Backend Setup**
   - Server initialization, configuration, database connectivity, and base routing.
-- [ ] **Authentication**
+- [x] **Authentication**
   - User registration, login, hashing, JWT token-based session management, and role validation.
-- [ ] **Menu Management**
+- [x] **Menu Management**
   - Fetching items by category, detailed item views, and stock availability updates.
-- [ ] **Cart Management**
+- [x] **Cart Management**
   - State management for carts, adding/editing/removing items, and persistency checks.
-- [ ] **Order Management**
+- [x] **Order Management**
   - Checkout flows, order object construction, and order status tracking.
 
 ---
@@ -52,22 +52,40 @@ Focuses on scaffolding the systems, setting up databases/servers, authentication
 ### Week 2: Integration, Support, and Launch
 Focuses on payment processing, delivery integration, administrator dashboards, offline PWA features, and deployment.
 
-- [ ] **Payment Module**
+- [x] **Payment Module**
   - Payment gateway integration, transaction records, and payment status hooks.
-- [ ] **Delivery Module**
+- [x] **Delivery Module**
   - Delivery dispatch, rider assignment, and real-time status tracking updates.
-- [ ] **Customer Support Module**
+- [x] **Customer Support Module**
   - Complaint logging, support tickets creation, and response updates.
-- [ ] **Admin Dashboard**
+- [x] **Admin Dashboard**
   - Metrics, order management, menu editor, and complaints handling panel.
-- [ ] **PWA Features**
+- [x] **PWA Features**
   - Service worker configuration, caching strategy (offline capability), manifest file, and install prompt.
-- [ ] **Testing**
+- [x] **Testing**
   - Unit tests, integration tests, and end-to-end user path walkthroughs.
-- [ ] **Deployment**
+- [x] **Deployment**
   - Host setups (e.g. Vercel for frontend, Render/AWS for backend/database).
-- [ ] **Documentation**
+- [x] **Documentation**
   - API reference completion, system design graphs, and setup guide.
+
+---
+
+### Advanced Features (Completed Post-Launch)
+Focuses on extending the user experience, maximizing customer retention, and facilitating customer relationship management.
+
+- [x] **Loyalty Rewards Program**
+  - Manager rules editor (setting earn/redeem conversion rates, minimum redeeming points threshold).
+  - Customer profile widgets showing point balances and detailed transaction logs.
+  - Automatic earning of points upon order delivery; deduction of points upon redemption at checkout.
+- [x] **Promotions & Offers Module**
+  - Support for percentage-based category discounts, flat checkout discounts with min-spend rules, and combo packages.
+  - Interactive manager panel for creating, updating, toggling active states, and deleting offers.
+  - Checkout calculator integration to auto-apply the best discount rate.
+- [x] **Real-Time Notification System**
+  - Supabase database triggers coupled with Node.js Express server to detect postgres insertions.
+  - Persistent Server-Sent Events (SSE) server stream with query-token authentication.
+  - PWA customer toast prompts, active admin alert popups, and unread notification bell badges.
 
 ---
 

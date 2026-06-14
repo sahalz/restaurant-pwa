@@ -142,4 +142,10 @@ export const categoryAPI = {
   createCategory: (name) => api.post('/categories', { name }),
 };
 
+export const notificationsAPI = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/read-all'),
+};
+
 export default api;
