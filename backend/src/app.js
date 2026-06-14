@@ -16,6 +16,7 @@ import addressRoutes from './routes/address.routes.js';
 import loyaltyRoutes from './routes/loyalty.routes.js';
 import offerRoutes from './routes/offer.routes.js';
 import ratingRoutes from './routes/rating.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 const app = express();
 
@@ -52,6 +53,7 @@ app.use('/api/addresses', addressRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/offers', offerRoutes);
 app.use('/api/orders', ratingRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 404 handler
 app.use((req, res, next) => {
@@ -63,5 +65,24 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
+// Setup global Supabase Realtime listener for Postgres changes on 'notifications' table
+import { getAdminClient } from './config/supabase.js';
+import { broadcastNotification } from './controllers/notification.controller.js';
+
+try {
+  const supabase = getAdminClient();
+  supabase
+    .channel('notifications-changes')
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
+      const newNotification = payload.new;
+      if (newNotification && newNotification.user_id) {
+        broadcastNotification(newNotification.user_id, newNotification);
+      }
+    })
+    .subscribe();
+} catch (error) {
+  console.error('Failed to set up database notification subscription:', error);
+}
 
 export default app;

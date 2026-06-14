@@ -133,4 +133,10 @@ export const offersAPI = {
     api.post('/offers/calculate', { cart_total, cart_items }),
 };
 
+export const notificationsAPI = {
+  getNotifications: () => api.get('/notifications'),
+  markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/read-all'),
+};
+
 export default api;

@@ -2,12 +2,10 @@ import { Link, useLocation } from 'react-router-dom';
 import { FaHome, FaUser, FaShoppingCart, FaBars, FaTimes, FaSignInAlt } from 'react-icons/fa';
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
 
 export const Navbar = () => {
   const location = useLocation();
   const { isAuthenticated, user, logout } = useAuth();
-  const { cartItems } = useCart();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
@@ -20,7 +18,7 @@ export const Navbar = () => {
     return location.pathname.startsWith(path);
   };
 
-  const cartCount = cartItems.length;
+  const cartCount = 0;
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);

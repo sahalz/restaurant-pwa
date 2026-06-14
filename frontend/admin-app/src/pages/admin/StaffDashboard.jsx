@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { orderAPI, supportAPI, menuAPI, categoryAPI } from '../../services/api';
+import { NotificationBell } from '../../components/common';
 import { 
   FaClipboardList, FaHeadset, FaExclamationTriangle, 
   FaSignOutAlt, FaSync, FaPhone, FaEnvelope, FaUser 
@@ -82,6 +83,23 @@ export const StaffDashboard = () => {
 
   useEffect(() => {
     fetchData();
+
+    const handleSwitchTab = (e) => {
+      setActiveTab(e.detail);
+    };
+
+    const handleNotificationReceived = (e) => {
+      // Silently refresh the dashboard data when a notification is received
+      fetchData(true);
+    };
+
+    window.addEventListener('switch-tab', handleSwitchTab);
+    window.addEventListener('notification-received', handleNotificationReceived);
+
+    return () => {
+      window.removeEventListener('switch-tab', handleSwitchTab);
+      window.removeEventListener('notification-received', handleNotificationReceived);
+    };
   }, []);
 
   const handleUpdateOrderStatus = async (orderId, currentStatus) => {
@@ -363,6 +381,7 @@ export const StaffDashboard = () => {
           <div className="admin-welcome-text">
             Logged in as: <strong>{user?.name || 'Staff User'}</strong> (<span style={{textTransform:'capitalize'}}>{user?.role}</span>)
           </div>
+          <NotificationBell />
           <button 
             className={`refresh-btn ${refreshing ? 'spinning' : ''}`}
             onClick={() => fetchData(true)}

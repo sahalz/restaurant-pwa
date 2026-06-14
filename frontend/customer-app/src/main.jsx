@@ -5,15 +5,18 @@ import App from './App.jsx';
 
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
+import { NotificationProvider } from './context/NotificationContext';
 import { PWAInstallPrompt } from './components/pwa';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AuthProvider>
-      <CartProvider>
-        <App />
-        <PWAInstallPrompt />
-      </CartProvider>
+      <NotificationProvider>
+        <CartProvider>
+          <App />
+          <PWAInstallPrompt />
+        </CartProvider>
+      </NotificationProvider>
     </AuthProvider>
   </StrictMode>
 );

@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      devOptions: {
+        enabled: true
+      },
       includeAssets: ['favicon.svg', 'apple-touch-icon.svg', 'mask-icon.svg'],
       manifest: {
         name: 'Restaurant PWA',

@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { createNotification, createNotificationForAdmins } from './notification.controller.js';
 
 // Helper to refund redeemed points back to the user when an order is cancelled
 const refundOrderPoints = async (orderId, userId) => {
@@ -329,6 +330,37 @@ export const createOrder = async (req, res, next) => {
       console.warn('Warning: Failed to clear cart items after checkout:', cartCleanupError);
     }
 
+    // Trigger in-app notifications
+    try {
+      await createNotification(
+        userId,
+        'Order Placed 🛒',
+        `Your order #${newOrder.id.slice(0, 8).toUpperCase()} has been successfully placed!`,
+        'order_status',
+        newOrder.id
+      );
+
+      if (redeemedPoints > 0) {
+        await createNotification(
+          userId,
+          'Points Redeemed 🎁',
+          `Redeemed ${redeemedPoints} loyalty points for a discount of ₹${loyaltyDiscount.toFixed(2)}.`,
+          'loyalty',
+          newOrder.id
+        );
+      }
+
+      // Notify managers and staff of the new order
+      await createNotificationForAdmins(
+        'New Order Received 🛒',
+        `Order #${newOrder.id.slice(0, 8).toUpperCase()} has been placed. Total: ₹${parseFloat(newOrder.total_amount).toFixed(2)}`,
+        'order_status',
+        newOrder.id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger order creation notifications:', notifErr.message);
+    }
+
     // 7. Return response matching docs/api_contract.md
     return res.status(201).json({
       status: 'success',
@@ -572,6 +604,44 @@ export const updateOrderStatus = async (req, res, next) => {
 
     if (orderError) throw orderError;
 
+    // Trigger order status update notification
+    try {
+      const statusTitles = {
+        pending: 'Order Received 📋',
+        preparing: 'Preparing Food 🍳',
+        ready: 'Order Ready 📦',
+        ready_for_pickup: 'Order Ready 📦',
+        rider_assigned: 'Rider Assigned 🚴',
+        out_for_delivery: 'Out for Delivery 🚴',
+        delivered: 'Order Delivered 🏁',
+        cancelled: 'Order Cancelled ❌'
+      };
+
+      const statusMessages = {
+        pending: `Your order #${id.slice(0, 8).toUpperCase()} is pending confirmation.`,
+        preparing: `Chef is preparing your order #${id.slice(0, 8).toUpperCase()}!`,
+        ready: `Your order #${id.slice(0, 8).toUpperCase()} is ready for pickup or dispatch.`,
+        ready_for_pickup: `Your order #${id.slice(0, 8).toUpperCase()} is ready for pickup.`,
+        rider_assigned: `A delivery rider has been assigned to your order #${id.slice(0, 8).toUpperCase()}.`,
+        out_for_delivery: `Your order #${id.slice(0, 8).toUpperCase()} is on the way!`,
+        delivered: `Your order #${id.slice(0, 8).toUpperCase()} has been successfully delivered. Enjoy!`,
+        cancelled: `Your order #${id.slice(0, 8).toUpperCase()} has been cancelled.`
+      };
+
+      const title = statusTitles[status] || 'Order Status Update 🔔';
+      const message = statusMessages[status] || `Your order #${id.slice(0, 8).toUpperCase()} status is now ${status}.`;
+
+      await createNotification(
+        updatedOrder.user_id,
+        title,
+        message,
+        'order_status',
+        id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger status update notification:', notifErr.message);
+    }
+
     // Earning points logic when marked as delivered
     if (status === 'delivered' && currentOrder && currentOrder.status !== 'delivered') {
       try {
@@ -620,6 +690,19 @@ export const updateOrderStatus = async (req, res, next) => {
               description: `Earned points for Order #${id.slice(0, 8).toUpperCase()} completion`
             });
 
+          // Send loyalty points earned notification
+          try {
+            await createNotification(
+              updatedOrder.user_id,
+              'Points Earned! 🎉',
+              `You earned ${pointsEarned} loyalty points from completed Order #${id.slice(0, 8).toUpperCase()}!`,
+              'loyalty',
+              id
+            );
+          } catch (notifErr) {
+            console.error('Failed to trigger loyalty earn notification:', notifErr.message);
+          }
+
           try {
             await supabase
               .from('orders')
@@ -637,6 +720,18 @@ export const updateOrderStatus = async (req, res, next) => {
     // Refund points if marked as cancelled
     if (status === 'cancelled' && currentOrder && currentOrder.status !== 'cancelled') {
       await refundOrderPoints(id, updatedOrder.user_id);
+      // Trigger notification for refund
+      try {
+        await createNotification(
+          updatedOrder.user_id,
+          'Points Refunded 🎁',
+          `Refunded redeemed points from cancelled Order #${id.slice(0, 8).toUpperCase()}.`,
+          'loyalty',
+          id
+        );
+      } catch (notifErr) {
+        console.error('Failed to trigger loyalty refund notification:', notifErr.message);
+      }
     }
 
     // Check if delivery tracking entry exists
@@ -727,6 +822,19 @@ export const cancelOrder = async (req, res, next) => {
 
     // Refund points on cancellation
     await refundOrderPoints(id, userId);
+
+    // Trigger notification for cancellation
+    try {
+      await createNotification(
+        userId,
+        'Order Cancelled ❌',
+        `Your order #${id.slice(0, 8).toUpperCase()} has been successfully cancelled.`,
+        'order_status',
+        id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger cancellation notification:', notifErr.message);
+    }
 
     return res.status(200).json({
       status: 'success',

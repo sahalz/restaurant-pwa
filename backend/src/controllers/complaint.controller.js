@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { createNotificationForAdmins } from './notification.controller.js';
 
 export const createComplaint = async (req, res, next) => {
   try {
@@ -22,6 +23,18 @@ export const createComplaint = async (req, res, next) => {
       .single();
 
     if (error) throw error;
+
+    // Notify managers and staff of the new complaint
+    try {
+      await createNotificationForAdmins(
+        'New Complaint Filed ⚠️',
+        `Complaint filed for Order #${order_id.slice(0, 8).toUpperCase()} - Issue: ${issue_type}`,
+        'support',
+        order_id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger admin complaint notification:', notifErr.message);
+    }
 
     return res.status(201).json({
       status: 'success',

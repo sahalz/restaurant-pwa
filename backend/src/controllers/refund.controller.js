@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase.js';
+import { createNotification, createNotificationForAdmins } from './notification.controller.js';
 
 /**
  * Create a new refund request
@@ -26,6 +27,18 @@ export const createRefundRequest = async (req, res, next) => {
       .single();
 
     if (error) throw error;
+
+    // Notify managers and staff of the new refund request
+    try {
+      await createNotificationForAdmins(
+        'New Refund Request 💸',
+        `Refund requested for Order #${order_id.slice(0, 8).toUpperCase()} of ₹${parseFloat(amount || 0).toFixed(2)}`,
+        'support',
+        order_id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger admin refund request notification:', notifErr.message);
+    }
 
     return res.status(201).json({
       status: 'success',
@@ -87,6 +100,19 @@ export const updateRefundStatus = async (req, res, next) => {
       .single();
 
     if (error) throw error;
+
+    // Notify customer about refund status update
+    try {
+      await createNotification(
+        data.user_id,
+        'Refund Status Update 💸',
+        `Your refund request for Order #${data.order_id?.slice(0, 8).toUpperCase()} has been ${status.toLowerCase()}.`,
+        'support',
+        data.order_id
+      );
+    } catch (notifErr) {
+      console.error('Failed to trigger customer refund status notification:', notifErr.message);
+    }
 
     return res.status(200).json({
       status: 'success',
