@@ -1,4 +1,4 @@
-import { getAdminClient } from '../config/supabase.js';
+import { getAdminClient, supabase } from '../config/supabase.js';
 
 /**
  * List menu items
@@ -7,7 +7,7 @@ import { getAdminClient } from '../config/supabase.js';
 export const getMenuItems = async (req, res, next) => {
   try {
     const supabase = getAdminClient();
-    const { category_id } = req.query;
+    const { category_id, is_featured } = req.query;
 
     let query = supabase
       .from('menu_items')
@@ -18,10 +18,37 @@ export const getMenuItems = async (req, res, next) => {
       query = query.eq('category_id', category_id);
     }
 
+    if (is_featured !== undefined) {
+      query = query.eq('is_featured', is_featured === 'true');
+    }
+
     const { data: menuItems, error } = await query;
 
     if (error) {
       throw error;
+    }
+
+    // Fetch real ratings from item_ratings table
+    let ratingsMap = {};
+    try {
+      const { data: allRatings } = await supabase
+        .from('item_ratings')
+        .select('menu_item_id, rating');
+      if (allRatings && allRatings.length > 0) {
+        const grouped = {};
+        for (const r of allRatings) {
+          if (!grouped[r.menu_item_id]) grouped[r.menu_item_id] = [];
+          grouped[r.menu_item_id].push(r.rating);
+        }
+        for (const [itemId, ratingArr] of Object.entries(grouped)) {
+          ratingsMap[itemId] = {
+            avg: parseFloat((ratingArr.reduce((a, b) => a + b, 0) / ratingArr.length).toFixed(1)),
+            count: ratingArr.length
+          };
+        }
+      }
+    } catch (ratingErr) {
+      // Ratings table may not exist yet — ignore and use mock
     }
 
     // Map database records and attach extra fields to satisfy the frontend UI expectations
@@ -40,16 +67,19 @@ export const getMenuItems = async (req, res, next) => {
       const isSpicy = lowerName.includes('spicy') || 
                       lowerName.includes('pepperoni');
 
+      const realRating = ratingsMap[item.id];
+
       return {
         ...item,
         // Ensure price is returned as float matching mock data
         price: parseFloat(item.price),
-        rating: 4.5 + (parseFloat(item.price) % 0.5), // creates a deterministic mock rating (e.g. 4.5 - 4.9)
-        reviews: Math.floor(100 + (parseFloat(item.price) * 10)), // deterministic mock reviews count
+        rating: realRating ? realRating.avg : parseFloat((4.5 + (parseFloat(item.price) % 0.5)).toFixed(1)),
+        reviews: realRating ? realRating.count : Math.floor(100 + (parseFloat(item.price) * 10)),
         restaurant: 'Tasty Bites',
         deliveryTime: '25-30 min',
         isVegetarian,
-        isSpicy
+        isSpicy,
+        is_featured: item.is_featured || false
       };
     });
 
@@ -69,7 +99,7 @@ export const getMenuItems = async (req, res, next) => {
  */
 export const createMenuItem = async (req, res, next) => {
   try {
-    const { category_id, name, description, price, image_url, availability } = req.body;
+    const { category_id, name, description, price, image_url, availability, is_featured } = req.body;
 
     if (!category_id || !name || price === undefined) {
       return res.status(400).json({ error: 'Category ID, name, and price are required' });
@@ -84,7 +114,8 @@ export const createMenuItem = async (req, res, next) => {
         description: description ? description.trim() : null,
         price: parseFloat(price),
         image_url: image_url ? image_url.trim() : null,
-        availability: availability !== undefined ? availability : true
+        availability: availability !== undefined ? availability : true,
+        is_featured: is_featured !== undefined ? is_featured : false
       })
       .select('*')
       .single();
@@ -112,7 +143,7 @@ export const createMenuItem = async (req, res, next) => {
 export const updateMenuItem = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, category_id, price, description, image_url, availability } = req.body;
+    const { name, category_id, price, description, image_url, availability, is_featured } = req.body;
 
     const supabase = getAdminClient();
     
@@ -124,6 +155,7 @@ export const updateMenuItem = async (req, res, next) => {
     if (description !== undefined) updateData.description = description ? description.trim() : null;
     if (image_url !== undefined) updateData.image_url = image_url ? image_url.trim() : null;
     if (availability !== undefined) updateData.availability = availability;
+    if (is_featured !== undefined) updateData.is_featured = is_featured;
 
     const { data: updatedItem, error } = await supabase
       .from('menu_items')
@@ -150,3 +182,82 @@ export const updateMenuItem = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * List popular menu items based on order volume in the last 30 days
+ * GET /api/menu/popular
+ */
+export const getPopularMenuItems = async (req, res, next) => {
+  try {
+    const supabase = getAdminClient();
+    
+    const { data: popularItems, error } = await supabase
+      .from('popular_menu_items')
+      .select('*')
+      .limit(10); // Limit to top 10 popular items
+
+    if (error) {
+      throw error;
+    }
+
+    // Fetch real ratings from item_ratings table
+    let ratingsMap = {};
+    try {
+      const { data: allRatings } = await supabase
+        .from('item_ratings')
+        .select('menu_item_id, rating');
+      if (allRatings && allRatings.length > 0) {
+        const grouped = {};
+        for (const r of allRatings) {
+          if (!grouped[r.menu_item_id]) grouped[r.menu_item_id] = [];
+          grouped[r.menu_item_id].push(r.rating);
+        }
+        for (const [itemId, ratingArr] of Object.entries(grouped)) {
+          ratingsMap[itemId] = {
+            avg: parseFloat((ratingArr.reduce((a, b) => a + b, 0) / ratingArr.length).toFixed(1)),
+            count: ratingArr.length
+          };
+        }
+      }
+    } catch (ratingErr) {
+      // Ratings table may not exist yet — ignore and use mock
+    }
+
+    const formattedPopularItems = (popularItems || []).map((item) => {
+      const lowerName = item.name.toLowerCase();
+      
+      const isVegetarian = lowerName.includes('veg') || 
+                           lowerName.includes('margherita') || 
+                           lowerName.includes('lemonade') ||
+                           lowerName.includes('americano') ||
+                           lowerName.includes('cake') ||
+                           lowerName.includes('cheesecake');
+
+      const isSpicy = lowerName.includes('spicy') || 
+                      lowerName.includes('pepperoni');
+
+      const realRating = ratingsMap[item.id];
+
+      return {
+        ...item,
+        price: parseFloat(item.price),
+        rating: realRating ? realRating.avg : parseFloat((4.5 + (parseFloat(item.price) % 0.5)).toFixed(1)),
+        reviews: realRating ? realRating.count : Math.floor(100 + (parseFloat(item.price) * 10)),
+        restaurant: 'Tasty Bites',
+        deliveryTime: '25-30 min',
+        isVegetarian,
+        isSpicy,
+        is_featured: item.is_featured || false
+      };
+    });
+
+    return res.status(200).json({
+      status: 'success',
+      data: formattedPopularItems
+    });
+  } catch (error) {
+    console.error('Fetch popular menu items error:', error);
+    next(error);
+  }
+};
+

@@ -116,21 +116,21 @@
 }
 
 .voice-record-btn:hover {
-  border-color: #f43f5e;
-  background: #fff1f2;
+  border-color: #667eea;
+  background: #f0f3ff;
 }
 
 .voice-record-btn.recording {
-  background: #ffe4e6;
-  border-color: #f43f5e;
-  color: #e11d48;
+  background: #e0e7ff;
+  border-color: #667eea;
+  color: #5a67d8;
   animation: pulseRecording 1.5s infinite;
 }
 
 @keyframes pulseRecording {
-  0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); }
-  70% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
 }
 
 .mic-icon {
@@ -139,7 +139,7 @@
 }
 
 .recording .mic-icon {
-  color: #e11d48;
+  color: #5a67d8;
   animation: blinkMic 0.8s infinite alternate;
 }
 
@@ -220,7 +220,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #f43f5e, #fda4af, #f43f5e);
+  background: linear-gradient(90deg, #667eea, #a5b4fc, #667eea);
   background-size: 200% 100%;
   animation: playWave 1.5s linear infinite;
   z-index: 1;
@@ -247,19 +247,19 @@
 }
 
 .image-upload-card:hover {
-  border-color: #f43f5e;
-  background: #fff8f8;
+  border-color: #667eea;
+  background: #f8faff;
 }
 
 .camera-icon {
   font-size: 1.8rem;
-  color: #f43f5e;
+  color: #667eea;
   margin-bottom: 8px;
 }
 
 .image-upload-card h4 {
   margin: 4px 0;
-  color: #f43f5e;
+  color: #667eea;
   font-weight: 600;
   font-size: 0.95rem;
 }
@@ -305,7 +305,7 @@
 }
 
 .remove-image-btn:hover {
-  background: #e11d48;
+  background: #5a67d8;
 }
 
 /* Checklist options */
@@ -351,14 +351,14 @@
 .option-row input[type="checkbox"] {
   width: 20px;
   height: 20px;
-  accent-color: #f43f5e;
+  accent-color: #667eea;
   cursor: pointer;
 }
 
 /* Save button */
 .delivery-inst-save-btn {
   width: 100%;
-  background: #f43f5e;
+  background: #667eea;
   color: #ffffff;
   border: none;
   border-radius: 14px;
@@ -371,9 +371,9 @@
 }
 
 .delivery-inst-save-btn:hover {
-  background: #e11d48;
+  background: #5a67d8;
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(244, 63, 94, 0.25);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
 }
 
 .delivery-inst-save-btn:active {

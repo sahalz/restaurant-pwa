@@ -59,10 +59,13 @@ export const authAPI = {
 // ==================== MENU MANAGEMENT ====================
 
 export const menuAPI = {
-  getMenu: (categoryId) => {
-    const params = categoryId && categoryId !== 'All' ? { category_id: categoryId } : {};
+  getMenu: (categoryId, isFeatured = null) => {
+    const params = {};
+    if (categoryId && categoryId !== 'All') params.category_id = categoryId;
+    if (isFeatured !== null) params.is_featured = isFeatured ? 'true' : 'false';
     return api.get('/menu', { params });
   },
+  getPopular: () => api.get('/menu/popular'),
   getCategories: () => api.get('/categories'),
 };
 
@@ -81,6 +84,8 @@ export const orderAPI = {
   getOrderById: (orderId) => api.get(`/orders/${orderId}`),
   updateOrderStatus: (orderId, status) => api.patch(`/orders/${orderId}`, { status }),
   cancelOrder: (orderId) => api.patch(`/orders/${orderId}/cancel`),
+  rateOrderItems: (orderId, ratings) => api.post(`/orders/${orderId}/rate`, { ratings }),
+  getOrderRatings: (orderId) => api.get(`/orders/${orderId}/rate`),
 };
 
 // ==================== PAYMENTS ====================
@@ -120,6 +125,12 @@ export const loyaltyAPI = {
   getProfile: () => api.get('/loyalty/profile'),
   getSettings: () => api.get('/loyalty/settings'),
   updateSettings: (data) => api.put('/loyalty/settings', data),
+};
+
+export const offersAPI = {
+  getOffers: () => api.get('/offers'),
+  calculateDiscount: (cart_total, cart_items) =>
+    api.post('/offers/calculate', { cart_total, cart_items }),
 };
 
 export default api;

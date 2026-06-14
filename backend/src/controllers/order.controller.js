@@ -101,6 +101,69 @@ export const createOrder = async (req, res, next) => {
       });
     }
 
+    // Offer Discount logic — auto-apply best eligible offer
+    let offerDiscount = 0;
+    let appliedOfferId = null;
+    let appliedOfferName = null;
+
+    try {
+      const { data: offers } = await supabase
+        .from('offers')
+        .select('*')
+        .eq('is_active', true);
+
+      if (offers && offers.length > 0) {
+        const today = new Date();
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const todayName = days[today.getDay()];
+
+        const validOffers = offers.filter(o => {
+          if (o.valid_until) {
+            const exp = new Date(o.valid_until); exp.setHours(23, 59, 59);
+            if (today > exp) return false;
+          }
+          if (o.valid_days && Array.isArray(o.valid_days) && o.valid_days.length > 0) {
+            if (!o.valid_days.includes(todayName)) return false;
+          }
+          return true;
+        });
+
+        let bestDisc = 0;
+        let bestOffer = null;
+        for (const offer of validOffers) {
+          if (offer.offer_type === 'flat' && offer.min_spend && offer.flat_discount) {
+            if (totalAmount >= parseFloat(offer.min_spend)) {
+              const disc = parseFloat(offer.flat_discount);
+              if (disc > bestDisc) { bestDisc = disc; bestOffer = offer; }
+            }
+          } else if (offer.offer_type === 'percentage' && offer.discount_percent) {
+            let applicable = totalAmount;
+            if (offer.category_id) {
+              // Filter items by category
+              const catItems = orderItemsToInsert.filter(item => {
+                const cartItem = cartItems.find(c => c.menu_item_id === item.menu_item_id);
+                return cartItem?.menu_items?.category_id === offer.category_id;
+              });
+              applicable = catItems.reduce((s, i) => s + (i.price * i.quantity), 0);
+            }
+            const disc = (applicable * parseFloat(offer.discount_percent)) / 100;
+            if (disc > bestDisc) { bestDisc = disc; bestOffer = offer; }
+          }
+        }
+
+        if (bestOffer) {
+          offerDiscount = Math.min(bestDisc, totalAmount);
+          appliedOfferId = bestOffer.id;
+          appliedOfferName = bestOffer.name;
+        }
+      }
+    } catch (offerErr) {
+      console.warn('Offer calculation failed (table may not exist yet):', offerErr.message);
+    }
+
+    // Apply offer discount before loyalty
+    totalAmount = Math.max(0, totalAmount - offerDiscount);
+
     // Loyalty Redemption logic
     const { points_to_redeem } = req.body;
     let loyaltyDiscount = 0;
@@ -155,7 +218,10 @@ export const createOrder = async (req, res, next) => {
     const loyaltyPayload = {
       ...insertPayload,
       loyalty_discount: loyaltyDiscount,
-      points_redeemed: redeemedPoints
+      points_redeemed: redeemedPoints,
+      offer_discount: offerDiscount,
+      applied_offer_id: appliedOfferId || null,
+      offer_name: appliedOfferName || null
     };
 
     const { data: tryOrder, error: orderInsertError } = await supabase

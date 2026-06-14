@@ -63,11 +63,11 @@ export const CartProvider = ({ children }) => {
 
   // Add item to cart or increase quantity if already exists
   const addToCart = async (item) => {
-    let newQuantity = 1;
+    const existingItem = cartItems.find((cartItem) => cartItem.id === item.id);
+    const newQuantity = existingItem ? existingItem.quantity + 1 : 1;
+
     setCartItems((prevItems) => {
-      const existingItem = prevItems.find((cartItem) => cartItem.id === item.id);
       if (existingItem) {
-        newQuantity = existingItem.quantity + 1;
         return prevItems.map((cartItem) =>
           cartItem.id === item.id
             ? { ...cartItem, quantity: newQuantity }
@@ -102,15 +102,16 @@ export const CartProvider = ({ children }) => {
 
   // Increase quantity of an item
   const increaseQuantity = async (itemId) => {
-    let newQuantity = 1;
+    const existingItem = cartItems.find((item) => item.id === itemId);
+    if (!existingItem) return;
+    const newQuantity = existingItem.quantity + 1;
+
     setCartItems((prevItems) =>
-      prevItems.map((item) => {
-        if (item.id === itemId) {
-          newQuantity = item.quantity + 1;
-          return { ...item, quantity: newQuantity };
-        }
-        return item;
-      })
+      prevItems.map((item) =>
+        item.id === itemId
+          ? { ...item, quantity: newQuantity }
+          : item
+      )
     );
 
     if (token) {
@@ -124,18 +125,17 @@ export const CartProvider = ({ children }) => {
 
   // Decrease quantity of an item (remove if quantity becomes 0)
   const decreaseQuantity = async (itemId) => {
-    let newQuantity = 0;
-    setCartItems((prevItems) => {
-      const matched = prevItems.find(item => item.id === itemId);
-      if (matched) {
-        newQuantity = matched.quantity - 1;
-      }
-      return prevItems
+    const existingItem = cartItems.find((item) => item.id === itemId);
+    if (!existingItem) return;
+    const newQuantity = existingItem.quantity - 1;
+
+    setCartItems((prevItems) =>
+      prevItems
         .map((item) =>
           item.id === itemId ? { ...item, quantity: newQuantity } : item
         )
-        .filter((item) => item.quantity > 0);
-    });
+        .filter((item) => item.quantity > 0)
+    );
 
     if (token) {
       try {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { orderAPI, supportAPI, menuAPI } from '../../services/api';
+import { orderAPI, supportAPI, menuAPI, categoryAPI } from '../../services/api';
 import { 
   FaClipboardList, FaHeadset, FaExclamationTriangle, 
   FaSignOutAlt, FaSync, FaPhone, FaEnvelope, FaUser 
@@ -22,6 +22,9 @@ export const StaffDashboard = () => {
   const [categories, setCategories] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [showNewCatInput, setShowNewCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [creatingCat, setCreatingCat] = useState(false);
   const [submittingItem, setSubmittingItem] = useState(false);
   const [itemError, setItemError] = useState('');
   const [newMenuItem, setNewMenuItem] = useState({
@@ -30,7 +33,8 @@ export const StaffDashboard = () => {
     price: '',
     description: '',
     image_url: '',
-    availability: true
+    availability: true,
+    is_featured: false
   });
   
   // Loading & Action states
@@ -191,6 +195,27 @@ export const StaffDashboard = () => {
     }
   };
 
+  const handleCreateCategory = async () => {
+    if (!newCatName.trim()) return;
+    setCreatingCat(true);
+    try {
+      const res = await categoryAPI.createCategory(newCatName.trim());
+      if (res.data.status === 'success') {
+        const created = res.data.data;
+        setCategories(prev => [...prev, created]);
+        setNewMenuItem(prev => ({ ...prev, category_id: created.id }));
+        setNewCatName('');
+        setShowNewCatInput(false);
+      } else {
+        alert(res.data.error || 'Failed to create category');
+      }
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to create category');
+    } finally {
+      setCreatingCat(false);
+    }
+  };
+
   const handleAddMenuItem = async (e) => {
     e.preventDefault();
     setItemError('');
@@ -216,7 +241,8 @@ export const StaffDashboard = () => {
         price: parseFloat(newMenuItem.price),
         description: (newMenuItem.description || '').trim() || null,
         image_url: (newMenuItem.image_url || '').trim() || null,
-        availability: true
+        availability: true,
+        is_featured: newMenuItem.is_featured
       });
 
       if (res.data.status === 'success') {
@@ -228,7 +254,8 @@ export const StaffDashboard = () => {
           price: '',
           description: '',
           image_url: '',
-          availability: true
+          availability: true,
+          is_featured: false
         });
         await fetchData(true);
       } else {
@@ -250,7 +277,8 @@ export const StaffDashboard = () => {
       price: item.price.toString(),
       description: item.description || '',
       image_url: item.image_url || '',
-      availability: item.availability
+      availability: item.availability,
+      is_featured: item.is_featured || false
     });
     setShowAddForm(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -281,7 +309,8 @@ export const StaffDashboard = () => {
         price: parseFloat(newMenuItem.price),
         description: (newMenuItem.description || '').trim() || null,
         image_url: (newMenuItem.image_url || '').trim() || null,
-        availability: newMenuItem.availability
+        availability: newMenuItem.availability,
+        is_featured: newMenuItem.is_featured
       });
 
       if (res.data.status === 'success') {
@@ -294,7 +323,8 @@ export const StaffDashboard = () => {
           price: '',
           description: '',
           image_url: '',
-          availability: true
+          availability: true,
+          is_featured: false
         });
         await fetchData(true);
       } else {
@@ -609,7 +639,8 @@ export const StaffDashboard = () => {
                           price: '',
                           description: '',
                           image_url: '',
-                          availability: true
+                          availability: true,
+                          is_featured: false
                         });
                       } else {
                         setShowAddForm(true);
@@ -620,7 +651,8 @@ export const StaffDashboard = () => {
                           price: '',
                           description: '',
                           image_url: '',
-                          availability: true
+                          availability: true,
+                          is_featured: false
                         });
                       }
                     }}
@@ -666,17 +698,57 @@ export const StaffDashboard = () => {
                     <div className="form-row">
                       <div className="form-group">
                         <label htmlFor="item-category">Category *</label>
-                        <select
-                          id="item-category"
-                          name="category_id"
-                          value={newMenuItem.category_id}
-                          onChange={handleItemFormChange}
-                          required
-                        >
-                          {categories.map(cat => (
-                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                          ))}
-                        </select>
+                        {showNewCatInput ? (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              value={newCatName}
+                              onChange={e => setNewCatName(e.target.value)}
+                              placeholder="New category name"
+                              style={{ flex: 1 }}
+                              autoFocus
+                              onKeyDown={e => e.key === 'Enter' && handleCreateCategory()}
+                            />
+                            <button
+                              type="button"
+                              onClick={handleCreateCategory}
+                              disabled={creatingCat}
+                              style={{ background: '#6366f1', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 14px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                            >
+                              {creatingCat ? '...' : 'Create'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setShowNewCatInput(false); setNewCatName(''); }}
+                              style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '8px', padding: '8px 10px', cursor: 'pointer' }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <select
+                              id="item-category"
+                              name="category_id"
+                              value={newMenuItem.category_id}
+                              onChange={handleItemFormChange}
+                              required
+                              style={{ flex: 1 }}
+                            >
+                              {categories.map(cat => (
+                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setShowNewCatInput(true)}
+                              title="Add new category"
+                              style={{ background: '#f0fdf4', color: '#16a34a', border: '1.5px solid #86efac', borderRadius: '8px', padding: '8px 12px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
+                            >
+                              + New
+                            </button>
+                          </div>
+                        )}
                       </div>
                       <div className="form-group image-upload-group">
                         <label>Image Selection</label>
@@ -711,7 +783,7 @@ export const StaffDashboard = () => {
                           className="remove-preview-btn"
                           onClick={() => setNewMenuItem(prev => ({ ...prev, image_url: '' }))}
                         >
-                          Remove Image
+                                  Remove Image
                         </button>
                       </div>
                     )}
@@ -728,6 +800,20 @@ export const StaffDashboard = () => {
                       />
                     </div>
 
+                    <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+                      <input
+                        type="checkbox"
+                        id="item-featured"
+                        name="is_featured"
+                        checked={newMenuItem.is_featured || false}
+                        onChange={handleItemFormChange}
+                        style={{ width: 'auto', cursor: 'pointer', margin: 0 }}
+                      />
+                      <label htmlFor="item-featured" style={{ fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                        Featured Food (Show on Homepage)
+                      </label>
+                    </div>
+
                     <div className="form-actions">
                       <button 
                         type="button" 
@@ -741,7 +827,8 @@ export const StaffDashboard = () => {
                             price: '',
                             description: '',
                             image_url: '',
-                            availability: true
+                            availability: true,
+                            is_featured: false
                           });
                         }}
                         disabled={submittingItem}
@@ -763,58 +850,88 @@ export const StaffDashboard = () => {
                   <div className="menu-categories-grouped-list">
                     {categories.map(category => {
                       const itemsInCategory = menuItems.filter(item => item.category_id === category.id);
-                      if (itemsInCategory.length === 0) return null;
                       
                       return (
                         <div key={category.id} className="menu-category-group">
                           <h3 className="category-section-title">{category.name}</h3>
-                          <div className="menu-items-grid">
-                            {itemsInCategory.map(item => (
-                              <div key={item.id} className="admin-menu-card">
-                                <div className="menu-card-header">
-                                  <div className="menu-card-title-box">
-                                    <h3>{item.name}</h3>
-                                  </div>
-                                </div>
-                                
-                                {item.image_url && (
-                                  <div className="menu-card-img-container">
-                                    <img src={item.image_url} alt={item.name} className="menu-card-img" />
-                                  </div>
-                                )}
-
-                                <div className="menu-card-body">
-                                  {item.description && <p className="menu-card-desc">{item.description}</p>}
-                                  <div className="menu-card-info-row">
-                                    <span className="menu-card-price">₹{parseFloat(item.price).toFixed(2)}</span>
-                                    <button 
-                                      type="button"
-                                      className="edit-item-btn"
-                                      onClick={() => handleEditClick(item)}
-                                    >
-                                      Edit
-                                    </button>
+                          {itemsInCategory.length > 0 ? (
+                            <div className="menu-items-grid">
+                              {itemsInCategory.map(item => (
+                                <div key={item.id} className="admin-menu-card">
+                                  <div className="menu-card-header">
+                                    <div className="menu-card-title-box">
+                                      <h3>{item.name}</h3>
+                                    </div>
                                   </div>
                                   
-                                  <div className="menu-card-stock-control">
-                                    <span className="stock-control-label">Available:</span>
-                                    <label className="switch">
-                                      <input 
-                                        type="checkbox" 
-                                        checked={item.availability} 
-                                        onChange={() => handleToggleAvailability(item.id, item.availability)}
-                                        disabled={actionLoadingId === item.id}
-                                      />
-                                      <span className="slider round"></span>
-                                    </label>
-                                    <span className={`stock-text ${item.availability ? 'in' : 'out'}`}>
-                                      {item.availability ? 'In Stock' : 'Out of Stock'}
-                                    </span>
+                                  {item.image_url && (
+                                    <div className="menu-card-img-container">
+                                      <img src={item.image_url} alt={item.name} className="menu-card-img" />
+                                    </div>
+                                  )}
+
+                                  <div className="menu-card-body">
+                                    {item.is_featured && (
+                                      <div style={{ marginBottom: '8px' }}>
+                                        <span className="featured-badge" style={{
+                                          display: 'inline-block',
+                                          backgroundColor: '#fef3c7',
+                                          color: '#d97706',
+                                          border: '1px solid #fde68a',
+                                          padding: '2px 8px',
+                                          borderRadius: '4px',
+                                          fontSize: '0.75rem',
+                                          fontWeight: '600'
+                                        }}>
+                                          ⭐ Featured
+                                        </span>
+                                      </div>
+                                    )}
+                                    {item.description && <p className="menu-card-desc">{item.description}</p>}
+                                    <div className="menu-card-info-row">
+                                      <span className="menu-card-price">₹{parseFloat(item.price).toFixed(2)}</span>
+                                      <button 
+                                        type="button"
+                                        className="edit-item-btn"
+                                        onClick={() => handleEditClick(item)}
+                                      >
+                                        Edit
+                                      </button>
+                                    </div>
+                                    
+                                    <div className="menu-card-stock-control">
+                                      <span className="stock-control-label">Available:</span>
+                                      <label className="switch">
+                                        <input 
+                                          type="checkbox" 
+                                          checked={item.availability} 
+                                          onChange={() => handleToggleAvailability(item.id, item.availability)}
+                                          disabled={actionLoadingId === item.id}
+                                        />
+                                        <span className="slider round"></span>
+                                      </label>
+                                      <span className={`stock-text ${item.availability ? 'in' : 'out'}`}>
+                                        {item.availability ? 'In Stock' : 'Out of Stock'}
+                                      </span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ 
+                              padding: '24px', 
+                              background: '#f8fafc', 
+                              border: '1.5px dashed #cbd5e1', 
+                              borderRadius: '12px', 
+                              color: '#64748b', 
+                              textAlign: 'center',
+                              marginBottom: '32px',
+                              fontSize: '0.9rem'
+                            }}>
+                              No items in this category yet. Click "+ Add Menu Item" to add one.
+                            </div>
+                          )}
                         </div>
                       );
                     })}

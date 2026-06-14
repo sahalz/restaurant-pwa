@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI, addressesAPI, loyaltyAPI } from '../../services/api';
-import { 
-  FaUser, 
-  FaEnvelope, 
-  FaPhone, 
-  FaShieldAlt, 
-  FaTrash, 
-  FaPlus, 
+import {
+  FaUser,
+  FaEnvelope,
+  FaPhone,
+  FaShieldAlt,
+  FaTrash,
+  FaPlus,
   FaSignOutAlt,
   FaMapMarkerAlt,
   FaHistory,
@@ -24,13 +24,13 @@ import './ProfilePage.css';
 export const ProfilePage = () => {
   const { user, updateProfile, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const [profile, setProfile] = useState(null);
   const [addresses, setAddresses] = useState([]);
   const [loyalty, setLoyalty] = useState({ points: 0, total_points_earned: 0, transactions: [] });
   const [loyaltySettings, setLoyaltySettings] = useState({ points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 });
   const [loading, setLoading] = useState(true);
-  
+
   // Profile editing state
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -72,7 +72,7 @@ export const ProfilePage = () => {
             return { data: { status: 'success', data: { points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 } } };
           })
         ]);
-        
+
         const p = profileRes.data.data;
         setProfile(p);
         setAddresses(addressesRes.data.data || []);
@@ -176,7 +176,7 @@ export const ProfilePage = () => {
       alert('Street address is required');
       return;
     }
-    
+
     setSubmittingAddress(true);
     try {
       const res = await addressesAPI.saveAddress({
@@ -186,7 +186,7 @@ export const ProfilePage = () => {
         pincode: newAddress.pincode,
         landmark: newAddress.landmark
       });
-      
+
       setAddresses(prev => [...prev, res.data.data]);
       setNewAddress({
         address: '',
@@ -195,7 +195,7 @@ export const ProfilePage = () => {
         pincode: '',
         landmark: ''
       });
-      
+
       // Update local storage delivery address copy to reflect latest
       localStorage.setItem('saved_delivery_address', JSON.stringify({
         fullName: profile?.name || user?.name || '',
@@ -217,7 +217,7 @@ export const ProfilePage = () => {
 
   const handleDeleteAddress = async (id) => {
     if (!window.confirm('Are you sure you want to delete this address?')) return;
-    
+
     try {
       await addressesAPI.deleteAddress(id);
       setAddresses(prev => prev.filter(addr => addr.id !== id));
@@ -239,19 +239,19 @@ export const ProfilePage = () => {
   return (
     <div className="profile-page">
       <div className="profile-container">
-        
+
         <div className="profile-sidebar">
           {/* User Card */}
           <div className="profile-card user-details-card">
             <div className="profile-avatar">
               <FaUser className="avatar-icon" />
             </div>
-            
+
             {!isEditing ? (
               <>
                 <h2>{profile?.name}</h2>
                 <span className="role-tag">{profile?.role?.toUpperCase()}</span>
-                
+
                 <div className="profile-info-grid">
                   <div className="info-item">
                     <FaEnvelope className="info-icon" />
@@ -288,7 +288,7 @@ export const ProfilePage = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="profile-actions">
                   <button className="edit-profile-btn" onClick={() => setIsEditing(true)}>
                     <FaEdit /> Edit Profile
@@ -301,9 +301,9 @@ export const ProfilePage = () => {
             ) : (
               <form onSubmit={handleEditSubmit} className="edit-profile-form">
                 <h3>Edit Profile Details</h3>
-                
+
                 {editError && <div className="edit-error">{editError}</div>}
-                
+
                 <div className="form-group">
                   <label htmlFor="edit-name">Full Name</label>
                   <input
@@ -316,7 +316,7 @@ export const ProfilePage = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label htmlFor="edit-phone">Phone Number</label>
                   <input
@@ -329,7 +329,7 @@ export const ProfilePage = () => {
                     required
                   />
                 </div>
-                
+
                 <div className="form-group">
                   <label>Food Preference</label>
                   <div className="pref-selector">
@@ -344,7 +344,7 @@ export const ProfilePage = () => {
                       <span className="pref-option-icon">🟢</span>
                       <span className="pref-option-text">Veg</span>
                     </label>
-                    
+
                     <label className={`pref-option-card ${editForm.preferred_food === 'non-veg' ? 'selected' : ''}`}>
                       <input
                         type="radio"
@@ -356,7 +356,7 @@ export const ProfilePage = () => {
                       <span className="pref-option-icon">🔴</span>
                       <span className="pref-option-text">Non-Veg</span>
                     </label>
-                    
+
                     <label className={`pref-option-card ${editForm.preferred_food === 'both' ? 'selected' : ''}`}>
                       <input
                         type="radio"
@@ -370,7 +370,7 @@ export const ProfilePage = () => {
                     </label>
                   </div>
                 </div>
-                
+
                 <div className="form-actions">
                   <button type="button" className="cancel-edit-btn" onClick={() => setIsEditing(false)} disabled={updatingProfile}>
                     Cancel
@@ -410,7 +410,7 @@ export const ProfilePage = () => {
             </div>
 
             <a href="/rewards" className="edit-profile-btn" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', padding: '12px', fontSize: '0.9rem' }}>
-              View Loyalty Program <FaChevronRight size={10} />
+              View My Rewards <FaChevronRight size={10} />
             </a>
           </div>
         </div>
@@ -419,7 +419,7 @@ export const ProfilePage = () => {
           {/* Addresses Section */}
           <div className="profile-card addresses-card">
             <h2><FaMapMarkerAlt /> Saved Addresses</h2>
-            
+
             {addresses.length === 0 ? (
               <p className="no-addresses">No saved addresses found. Add one below!</p>
             ) : (
@@ -433,8 +433,8 @@ export const ProfilePage = () => {
                       )}
                       <p className="addr-city-state">{addr.city}, {addr.state} - {addr.pincode}</p>
                     </div>
-                    <button 
-                      className="delete-address-btn" 
+                    <button
+                      className="delete-address-btn"
                       onClick={() => handleDeleteAddress(addr.id)}
                       title="Delete Address"
                     >

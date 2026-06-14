@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AddressForm, PaymentMethod, CheckoutSummary, DeliveryInstructionsModal } from '../../components/checkout';
 import { useCart } from '../../context/CartContext';
-import { addressesAPI, orderAPI, paymentAPI, loyaltyAPI } from '../../services/api';
+import { addressesAPI, orderAPI, paymentAPI, loyaltyAPI, offersAPI } from '../../services/api';
 import './CheckoutPage.css';
 
 export const CheckoutPage = () => {
@@ -18,6 +18,10 @@ export const CheckoutPage = () => {
   const [loyalty, setLoyalty] = useState({ points: 0 });
   const [loyaltySettings, setLoyaltySettings] = useState({ rupee_per_point: 0.5, min_points_to_redeem: 50 });
   const [applyLoyalty, setApplyLoyalty] = useState(false);
+
+  // Offer discount state
+  const [offerDiscount, setOfferDiscount] = useState(0);
+  const [appliedOffer, setAppliedOffer] = useState(null);
 
   // Notes and delivery instructions states
   const [restaurantNote, setRestaurantNote] = useState('');
@@ -54,6 +58,25 @@ export const CheckoutPage = () => {
     };
     fetchLoyalty();
   }, []);
+
+  // Fetch best applicable offer discount whenever cart changes
+  useEffect(() => {
+    if (!total || total <= 0 || cartItems.length === 0) return;
+    const cartItemsForApi = cartItems.map(item => ({
+      menu_item_id: item.id,
+      category_id: item.category_id || null,
+      price: item.price,
+      quantity: item.quantity
+    }));
+    offersAPI.calculateDiscount(total, cartItemsForApi)
+      .then(res => {
+        if (res.data?.data) {
+          setOfferDiscount(res.data.data.discount || 0);
+          setAppliedOffer(res.data.data.offer || null);
+        }
+      })
+      .catch(() => {});
+  }, [total, cartItems]);
 
   // Fetch saved addresses from backend on mount
   useEffect(() => {
@@ -179,7 +202,7 @@ export const CheckoutPage = () => {
       }
 
       // Compute order total for confirmation page
-      const totalAmountPaid = total + deliveryFee + tax - loyaltyDiscount;
+      const totalAmountPaid = Math.max(0, total + deliveryFee + tax - offerDiscount - loyaltyDiscount);
 
       // Success - clear local cart and navigate to confirmation
       clearCart();
@@ -391,7 +414,17 @@ export const CheckoutPage = () => {
           </div>
  
           <div className="checkout-sidebar">
-            <CheckoutSummary loyaltyDiscount={loyaltyDiscount} />
+            {/* Offer Discount Banner */}
+            {appliedOffer && offerDiscount > 0 && (
+              <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', borderRadius: '12px', padding: '14px 18px', marginBottom: '14px', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.4rem' }}>🔥</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{appliedOffer.name}</div>
+                  <div style={{ fontSize: '0.85rem', opacity: 0.9 }}>You save ₹{offerDiscount.toFixed(2)} with this offer!</div>
+                </div>
+              </div>
+            )}
+            <CheckoutSummary loyaltyDiscount={loyaltyDiscount} offerDiscount={offerDiscount} />
             <button
               className="place-order-btn"
               onClick={handlePlaceOrder}

@@ -14,6 +14,8 @@ import complaintRoutes from './routes/complaint.routes.js';
 import refundRoutes from './routes/refund.routes.js';
 import addressRoutes from './routes/address.routes.js';
 import loyaltyRoutes from './routes/loyalty.routes.js';
+import offerRoutes from './routes/offer.routes.js';
+import ratingRoutes from './routes/rating.routes.js';
 
 const app = express();
 
@@ -48,6 +50,8 @@ app.use('/api/complaints', complaintRoutes);
 app.use('/api/refunds', refundRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
+app.use('/api/offers', offerRoutes);
+app.use('/api/orders', ratingRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

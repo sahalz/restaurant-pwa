@@ -14,6 +14,12 @@ export const OrderDetailsPage = () => {
   const [error, setError] = useState('');
   const [cancellationLoading, setCancellationLoading] = useState(false);
 
+  // Rating state
+  const [ratings, setRatings] = useState({}); // { menu_item_id: { rating, review } }
+  const [existingRatings, setExistingRatings] = useState([]);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingDone, setRatingDone] = useState(false);
+
   useEffect(() => {
     const fetchOrderDetails = async () => {
       try {
@@ -25,6 +31,20 @@ export const OrderDetailsPage = () => {
         setOrder(orderRes.data.data);
         setAddresses(addressesRes.data.data || []);
         setError('');
+        // Fetch existing ratings
+        try {
+          const ratingRes = await orderAPI.getOrderRatings(id);
+          if (ratingRes.data.data?.length > 0) {
+            setExistingRatings(ratingRes.data.data);
+            setRatingDone(true);
+            const map = {};
+            ratingRes.data.data.forEach(r => {
+              map[r.menu_item_id] = { rating: r.rating, review: r.review || '' };
+            });
+            setRatings(map);
+          }
+        } catch {}
+        // ----
       } catch (err) {
         console.error('Failed to fetch order details:', err);
         setError('Order not found or access denied.');
@@ -184,6 +204,83 @@ export const OrderDetailsPage = () => {
               ))}
             </div>
           </div>
+
+          {/* ====== RATING SECTION ====== */}
+          {uiOrder.status === 'delivered' && (
+            <div style={{ background: '#fff', borderRadius: '16px', padding: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', marginTop: '24px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#1e293b', marginBottom: '18px' }}>
+                ⭐ Rate Your Order
+              </h2>
+              {ratingDone ? (
+                <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '10px', padding: '16px', color: '#065f46', fontWeight: 600, textAlign: 'center' }}>
+                  ✅ Thank you! Your ratings have been submitted.
+                  {existingRatings.map(r => (
+                    <div key={r.menu_item_id} style={{ fontSize: '0.85rem', marginTop: '6px', color: '#047857' }}>
+                      {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)} — {uiOrder.items.find(i => i.menu_item_id === r.menu_item_id)?.name || 'Item'}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                  {(order.order_items || []).map(item => {
+                    const menuItemId = item.menu_item_id || item.id;
+                    const current = ratings[menuItemId] || { rating: 0, review: '' };
+                    return (
+                      <div key={menuItemId} style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px', border: '1.5px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: '10px' }}>
+                          {item.menu_items?.name || 'Menu Item'}
+                        </div>
+                        {/* Stars */}
+                        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                          {[1, 2, 3, 4, 5].map(star => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => setRatings(prev => ({ ...prev, [menuItemId]: { ...prev[menuItemId], rating: star } }))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.8rem', padding: '2px', color: star <= current.rating ? '#f59e0b' : '#d1d5db', transition: 'color 0.15s, transform 0.1s', transform: star <= current.rating ? 'scale(1.15)' : 'scale(1)' }}
+                            >
+                              ★
+                            </button>
+                          ))}
+                          {current.rating > 0 && <span style={{ alignSelf: 'center', fontSize: '0.85rem', color: '#64748b', marginLeft: '6px' }}>{['', 'Poor', 'Fair', 'Good', 'Great', 'Excellent'][current.rating]}</span>}
+                        </div>
+                        {/* Optional review */}
+                        <input
+                          type="text"
+                          placeholder="Leave a short review (optional)"
+                          value={current.review || ''}
+                          onChange={e => setRatings(prev => ({ ...prev, [menuItemId]: { ...prev[menuItemId], review: e.target.value } }))}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                        />
+                      </div>
+                    );
+                  })}
+                  <button
+                    onClick={async () => {
+                      const toSubmit = Object.entries(ratings)
+                        .filter(([, v]) => v.rating > 0)
+                        .map(([menu_item_id, v]) => ({ menu_item_id, rating: v.rating, review: v.review }));
+                      if (toSubmit.length === 0) { alert('Please rate at least one item.'); return; }
+                      setRatingSubmitting(true);
+                      try {
+                        await orderAPI.rateOrderItems(id, toSubmit);
+                        setRatingDone(true);
+                        setExistingRatings(toSubmit.map(r => ({ ...r })));
+                      } catch (err) {
+                        alert(err.response?.data?.error || 'Failed to submit ratings. Please try again.');
+                      } finally {
+                        setRatingSubmitting(false);
+                      }
+                    }}
+                    disabled={ratingSubmitting}
+                    style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', color: '#fff', border: 'none', borderRadius: '12px', padding: '14px 28px', fontWeight: 800, fontSize: '1rem', cursor: 'pointer', alignSelf: 'flex-start', boxShadow: '0 4px 14px rgba(245,158,11,0.3)' }}
+                  >
+                    {ratingSubmitting ? 'Submitting...' : '⭐ Submit Ratings'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="order-info-section">
             <h2>Delivery Information</h2>
