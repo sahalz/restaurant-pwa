@@ -1,4 +1,4 @@
-# Restaurant PWA & Administration Portal
+# DirectDine & Administration Portal
 
 A Progressive Web Application (PWA) designed for restaurants. This project features a Node.js Express backend using Supabase (PostgreSQL) for state management, coupled with two separate modern frontend clients: a client-facing Customer PWA and a Restaurant Administration Portal.
 
