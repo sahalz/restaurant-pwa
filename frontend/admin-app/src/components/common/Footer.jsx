@@ -10,7 +10,7 @@ export const Footer = () => {
           <h3>About Us</h3>
           <p>
             Delicious food delivered to your doorstep. Experience the
-            best culinary journey with our restaurant PWA.
+            best culinary journey with DirectDine.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export const Footer = () => {
       </div>
 
       <div className="footer-bottom">
-        <p>&copy; 2024 Restaurant PWA. All rights reserved.</p>
+        <p>&copy; 2024 DirectDine. All rights reserved.</p>
       </div>
     </footer>
   );

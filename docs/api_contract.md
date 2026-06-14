@@ -1,9 +1,9 @@
 # API Contract Documentation
 
-This document defines the REST API endpoints, request payloads, and response structures for the Restaurant PWA.
+This document defines the REST API endpoints, request payloads, and response structures for the DirectDine application.
 
 ## Base URL
-`https://api.restaurantpwa.com/v1`
+`https://api.directdine.com/v1`
 
 ---
 
@@ -81,7 +81,7 @@ This document defines the REST API endpoints, request payloads, and response str
         "name": "Margherita Pizza",
         "description": "Fresh mozzarella, basil, and organic tomato sauce.",
         "price": 12.99,
-        "image_url": "https://images.restaurantpwa.com/pizza.jpg",
+        "image_url": "https://images.directdine.com/pizza.jpg",
         "availability": true
       }
     ]

@@ -16,8 +16,8 @@ export default defineConfig({
       },
       includeAssets: ['favicon.svg', 'apple-touch-icon.svg', 'mask-icon.svg'],
       manifest: {
-        name: 'Restaurant PWA',
-        short_name: 'Restaurant',
+        name: 'DirectDine Admin',
+        short_name: 'DirectDine Admin',
         description: 'Order delicious food from your favorite restaurant',
         theme_color: '#667eea',
         background_color: '#ffffff',
@@ -49,7 +49,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // API calls - try network first, fallback to cache
-            urlPattern: /^https:\/\/api\.restaurantpwa\.com\/.*/i,
+            urlPattern: /^https:\/\/api\.directdine\.com\/.*/i,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',

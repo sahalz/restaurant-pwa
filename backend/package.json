@@ -1,7 +1,7 @@
 {
-  "name": "restaurant-pwa-backend",
+  "name": "directdine-backend",
   "version": "1.0.0",
-  "description": "Backend API for Restaurant PWA",
+  "description": "Backend API for DirectDine",
   "main": "server.js",
   "type": "module",
   "scripts": {

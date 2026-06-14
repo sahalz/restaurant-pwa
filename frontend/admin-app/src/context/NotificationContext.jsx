@@ -60,7 +60,7 @@ export const NotificationProvider = ({ children }) => {
       const token = sessionStorage.getItem('token');
       if (token) {
         // Build SSE URL (bridge hosted on local Express app)
-        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.restaurantpwa.com/v1';
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://api.directdine.com/v1';
         const streamUrl = `${baseUrl}/notifications/stream?token=${encodeURIComponent(token)}`;
 
         // Open Server-Sent Events stream

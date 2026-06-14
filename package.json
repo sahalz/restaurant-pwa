@@ -1,8 +1,8 @@
 {
-  "name": "restaurant-pwa-root",
+  "name": "directdine-root",
   "version": "1.0.0",
   "private": true,
-  "description": "Root workspace of the Restaurant PWA project",
+  "description": "Root workspace of the DirectDine project",
   "scripts": {
     "backend:dev": "npm run dev --prefix backend",
     "backend:start": "npm run start --prefix backend",
