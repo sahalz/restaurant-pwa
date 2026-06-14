@@ -23,7 +23,7 @@ A Progressive Web Application (PWA) designed for restaurants. This project featu
 
 The backend utilizes **Supabase** (PostgreSQL) to store application data.
 
-1. **Schema Initialization:** Execute the SQL commands in [schema.sql](file:///d:/Projects/restaurant-pwa/database/schema.sql) and [update_schema.sql](file:///d:/Projects/restaurant-pwa/database/update_schema.sql) in your Supabase database.
+1. **Schema Initialization:** Execute the SQL commands in [schema.sql](file:///d:/Projects/restaurant-pwa/database/schema.sql) and [update_schema.sql](file:///d:/Projects/restaurant-pwa/database/update_schema.sql) in your Supabase database. The `update_schema.sql` script sets up customer profiles, custom delivery columns, the `is_featured` column flag, and the rolling 30-day `popular_menu_items` view.
 2. **Loyalty Program Migration:** Execute the SQL commands in [loyalty.sql](file:///d:/Projects/restaurant-pwa/database/loyalty.sql) to set up loyalty program tables (`Loyalty`, `LoyaltySettings`, `LoyaltyTransactions`) and configure points tracking fields.
 3. **Seed Data:** Execute the queries in [seed.sql](file:///d:/Projects/restaurant-pwa/database/seed.sql) to pre-populate categories and initial menu items (Pizzas, Burgers, Drinks, Desserts).
 
@@ -94,6 +94,7 @@ The system uses role-based access validation on both frontend and backend to sec
 | **Authentication** | `/api/auth/register` | `POST` | *None* | User registration (Passwords restricted to Staff / Managers) |
 | | `/api/auth/login` | `POST` | *None* | User password login (Staff / Managers Only) |
 | **Menu** | `/api/menu` | `GET` | *None* | Retrieve list of menu items |
+| | `/api/menu/popular` | `GET` | *None* | Retrieve list of popular menu items based on 30-day order volume |
 | | `/api/menu` | `POST` | Staff / Manager | Create a new menu item |
 | | `/api/menu/:id` | `PATCH` | Staff / Manager | Update menu item details or availability |
 | **Cart** | `/api/cart` | `GET` | Customer | Retrieve user's current shopping cart |

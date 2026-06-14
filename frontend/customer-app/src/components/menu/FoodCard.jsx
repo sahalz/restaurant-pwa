@@ -1,4 +1,5 @@
 import { FaStar, FaHeart, FaPlus } from 'react-icons/fa';
+import './FoodCard.css';
 
 export const FoodCard = ({ food, onAddToCart }) => {
   const isUrl = food.image_url && (food.image_url.startsWith('http') || food.image_url.startsWith('/') || food.image_url.startsWith('data:'));

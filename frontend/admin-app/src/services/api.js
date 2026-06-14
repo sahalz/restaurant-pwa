@@ -59,8 +59,10 @@ export const authAPI = {
 // ==================== MENU MANAGEMENT ====================
 
 export const menuAPI = {
-  getMenu: (categoryId) => {
-    const params = categoryId && categoryId !== 'All' ? { category_id: categoryId } : {};
+  getMenu: (categoryId, isFeatured = null) => {
+    const params = {};
+    if (categoryId && categoryId !== 'All') params.category_id = categoryId;
+    if (isFeatured !== null) params.is_featured = isFeatured ? 'true' : 'false';
     return api.get('/menu', { params });
   },
   getCategories: () => api.get('/categories'),
@@ -126,6 +128,18 @@ export const loyaltyAPI = {
   getProfile: () => api.get('/loyalty/profile'),
   getSettings: () => api.get('/loyalty/settings'),
   updateSettings: (data) => api.put('/loyalty/settings', data),
+};
+
+export const offersAPI = {
+  getOffers: (all = false) => api.get('/offers', { params: all ? { all: 'true' } : {} }),
+  createOffer: (data) => api.post('/offers', data),
+  updateOffer: (id, data) => api.put(`/offers/${id}`, data),
+  toggleStatus: (id, is_active) => api.patch(`/offers/${id}/status`, { is_active }),
+  deleteOffer: (id) => api.delete(`/offers/${id}`),
+};
+
+export const categoryAPI = {
+  createCategory: (name) => api.post('/categories', { name }),
 };
 
 export default api;

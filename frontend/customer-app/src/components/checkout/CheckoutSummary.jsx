@@ -1,12 +1,12 @@
 import { useCart } from '../../context/CartContext';
 import { getItemEmoji } from '../../utils/emojiHelper';
 
-export const CheckoutSummary = ({ loyaltyDiscount = 0 }) => {
+export const CheckoutSummary = ({ loyaltyDiscount = 0, offerDiscount = 0 }) => {
   const { cartItems, total, itemCount } = useCart();
 
   const deliveryFee = 2.99;
   const tax = total * 0.08;
-  const finalTotal = Math.max(0, total + deliveryFee + tax - loyaltyDiscount);
+  const finalTotal = Math.max(0, total + deliveryFee + tax - offerDiscount - loyaltyDiscount);
 
   return (
     <div className="checkout-summary">
@@ -42,6 +42,12 @@ export const CheckoutSummary = ({ loyaltyDiscount = 0 }) => {
           <span className="label">Tax</span>
           <span className="value">₹{tax.toFixed(2)}</span>
         </div>
+        {offerDiscount > 0 && (
+          <div className="summary-row" style={{ color: '#10b981', fontWeight: '700' }}>
+            <span className="label">🔥 Offer Discount</span>
+            <span className="value">-₹{offerDiscount.toFixed(2)}</span>
+          </div>
+        )}
         {loyaltyDiscount > 0 && (
           <div className="summary-row loyalty-discount-row" style={{ color: '#059669', fontWeight: '600' }}>
             <span className="label">Loyalty Discount</span>

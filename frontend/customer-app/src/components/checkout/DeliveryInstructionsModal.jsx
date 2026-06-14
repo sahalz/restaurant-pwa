@@ -1,9 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { FaMicrophone, FaCamera, FaTrash, FaPlay, FaPause, FaTimes, FaVolumeUp } from 'react-icons/fa';
+import { useState, useEffect } from 'react';
+import { FaCamera, FaTrash, FaTimes } from 'react-icons/fa';
 import './DeliveryInstructionsModal.css';
 
 export const DeliveryInstructionsModal = ({ isOpen, onClose, addressText, initialInstructions, onSave }) => {
-  const [voiceUrl, setVoiceUrl] = useState(initialInstructions?.voiceUrl || '');
   const [imageUrl, setImageUrl] = useState(initialInstructions?.imageUrl || '');
   const [options, setOptions] = useState(initialInstructions?.options || {
     leaveAtDoor: false,
@@ -13,14 +12,8 @@ export const DeliveryInstructionsModal = ({ isOpen, onClose, addressText, initia
     petAtHome: false,
   });
 
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const recordingTimer = useRef(null);
-
   useEffect(() => {
     if (isOpen) {
-      setVoiceUrl(initialInstructions?.voiceUrl || '');
       setImageUrl(initialInstructions?.imageUrl || '');
       setOptions(initialInstructions?.options || {
         leaveAtDoor: false,
@@ -31,34 +24,6 @@ export const DeliveryInstructionsModal = ({ isOpen, onClose, addressText, initia
       });
     }
   }, [isOpen, initialInstructions]);
-
-  // Voice note simulator
-  const handleRecordStart = (e) => {
-    e.preventDefault();
-    setIsRecording(true);
-    setRecordingSeconds(0);
-    recordingTimer.current = setInterval(() => {
-      setRecordingSeconds((prev) => prev + 1);
-    }, 1000);
-  };
-
-  const handleRecordEnd = () => {
-    if (isRecording) {
-      clearInterval(recordingTimer.current);
-      setIsRecording(false);
-      // Save simulated voice note base64
-      setVoiceUrl(`voice_recording_simulated_${recordingSeconds}s.mp3`);
-    }
-  };
-
-  const handleDeleteVoice = () => {
-    setVoiceUrl('');
-    setIsPlaying(false);
-  };
-
-  const togglePlayback = () => {
-    setIsPlaying(!isPlaying);
-  };
 
   // Image Upload
   const handleImageChange = (e) => {
@@ -85,7 +50,7 @@ export const DeliveryInstructionsModal = ({ isOpen, onClose, addressText, initia
 
   const handleSave = () => {
     onSave({
-      voiceUrl,
+      voiceUrl: '', // backward compatibility
       imageUrl,
       options,
     });
@@ -105,42 +70,6 @@ export const DeliveryInstructionsModal = ({ isOpen, onClose, addressText, initia
         <p className="delivery-inst-address-label">Home</p>
         <p className="delivery-inst-address-text">{addressText}</p>
 
-        {/* Voice Note Section */}
-        <div className="delivery-inst-section">
-          {!voiceUrl ? (
-            <button
-              className={`voice-record-btn ${isRecording ? 'recording' : ''}`}
-              onMouseDown={handleRecordStart}
-              onMouseUp={handleRecordEnd}
-              onMouseLeave={handleRecordEnd}
-              onTouchStart={handleRecordStart}
-              onTouchEnd={handleRecordEnd}
-            >
-              <FaMicrophone className="mic-icon" />
-              <span>
-                {isRecording
-                  ? `Recording (${recordingSeconds}s)... Release to save`
-                  : 'Tap and hold to record instruction'}
-              </span>
-            </button>
-          ) : (
-            <div className="voice-player-card">
-              <div className="voice-player-info">
-                <FaVolumeUp />
-                <span>Simulated Voice Note ({voiceUrl.split('_')[3] || 'Recording'})</span>
-              </div>
-              <div className="voice-player-controls">
-                <button className="play-pause-btn" onClick={togglePlayback}>
-                  {isPlaying ? <FaPause /> : <FaPlay />}
-                </button>
-                <button className="delete-voice-btn" onClick={handleDeleteVoice}>
-                  <FaTrash />
-                </button>
-              </div>
-              {isPlaying && <div className="voice-playing-wave" />}
-            </div>
-          )}
-        </div>
 
         {/* Door Image Section */}
         <div className="delivery-inst-section">

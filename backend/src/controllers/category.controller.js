@@ -60,8 +60,8 @@ export const getCategoryById = async (req, res, next) => {
  */
 export const createCategory = async (req, res, next) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Administrator privileges required.' });
+    if (!['admin', 'manager', 'staff'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Access denied. Staff privileges required.' });
     }
 
     const { name } = req.body;

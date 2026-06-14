@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { orderAPI, supportAPI, loyaltyAPI } from '../../services/api';
-import { 
-  FaChartLine, FaClipboardList, FaHeadset, FaSignOutAlt, 
-  FaSync, FaCalendarAlt, FaRupeeSign, FaShoppingBag, 
-  FaPercentage, FaUser, FaPhone, FaEnvelope, FaGift 
+import { orderAPI, supportAPI, loyaltyAPI, offersAPI } from '../../services/api';
+import {
+  FaChartLine, FaClipboardList, FaHeadset, FaSignOutAlt,
+  FaSync, FaCalendarAlt, FaRupeeSign, FaShoppingBag,
+  FaPercentage, FaUser, FaPhone, FaEnvelope, FaGift, FaTag,
+  FaPlus, FaEdit, FaToggleOn, FaToggleOff, FaTrash
 } from 'react-icons/fa';
 import './AdminDashboard.css';
 
@@ -19,6 +20,21 @@ export const ManagerDashboard = () => {
   // Loyalty Settings state
   const [loyaltySettings, setLoyaltySettings] = useState({ points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 });
   const [savingLoyaltySettings, setSavingLoyaltySettings] = useState(false);
+
+  // Offers state
+  const [offers, setOffers] = useState([]);
+  const [offerForm, setOfferForm] = useState({
+    name: '', offer_type: 'flat', is_active: true,
+    valid_until: '', valid_days: [],
+    discount_percent: '', category_condition: '',
+    min_spend: '', flat_discount: '',
+    combo_items: '', original_price: '', offer_price: ''
+  });
+  const [comboItems, setComboItems] = useState(['']);
+  const [editingOffer, setEditingOffer] = useState(null);
+  const [showOfferForm, setShowOfferForm] = useState(false);
+  const [offerLoading, setOfferLoading] = useState(false);
+  const [offerError, setOfferError] = useState('');
   
   // Filtering & Date selection
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -31,24 +47,26 @@ export const ManagerDashboard = () => {
   const fetchData = async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
-    
+
     try {
-      const [ordersRes, ticketsRes, refundsRes, loyaltyRes] = await Promise.all([
+      const [ordersRes, ticketsRes, refundsRes, loyaltyRes, offersRes] = await Promise.all([
         orderAPI.getOrders(),
         supportAPI.getSupportTickets(),
         supportAPI.getRefundRequests(),
         loyaltyAPI.getSettings().catch(err => {
           console.warn('Loyalty settings could not be fetched:', err);
           return { data: { status: 'success', data: { points_per_rupee: 0.1, rupee_per_point: 0.5, min_points_to_redeem: 50 } } };
-        })
+        }),
+        offersAPI.getOffers(true).catch(() => ({ data: { data: [] } }))
       ]);
-      
+
       setOrders(ordersRes.data.data || []);
       setTickets(ticketsRes.data.data || []);
       setRefunds(refundsRes.data.data || []);
       if (loyaltyRes?.data?.status === 'success') {
         setLoyaltySettings(loyaltyRes.data.data);
       }
+      setOffers(offersRes.data.data || []);
     } catch (error) {
       console.error('Failed to fetch manager dashboard data:', error);
     } finally {
@@ -116,6 +134,118 @@ export const ManagerDashboard = () => {
       setActionLoadingId(null);
     }
   };
+
+  // ======================== OFFER HANDLERS ========================
+  const DAYS = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+  const resetOfferForm = () => {
+    setOfferForm({
+      name: '', offer_type: 'flat', is_active: true,
+      valid_until: '', valid_days: [],
+      discount_percent: '', category_condition: '',
+      min_spend: '', flat_discount: '',
+      combo_items: '', original_price: '', offer_price: ''
+    });
+    setComboItems(['']);
+    setEditingOffer(null);
+    setOfferError('');
+  };
+
+  const handleEditOffer = (offer) => {
+    setEditingOffer(offer);
+    setOfferForm({
+      name: offer.name || '',
+      offer_type: offer.offer_type || 'flat',
+      is_active: offer.is_active ?? true,
+      valid_until: offer.valid_until ? offer.valid_until.split('T')[0] : '',
+      valid_days: offer.valid_days || [],
+      discount_percent: offer.discount_percent || '',
+      category_condition: offer.category_condition || '',
+      min_spend: offer.min_spend || '',
+      flat_discount: offer.flat_discount || '',
+      combo_items: offer.combo_items ? JSON.stringify(offer.combo_items) : '',
+      original_price: offer.original_price || '',
+      offer_price: offer.offer_price || ''
+    });
+    
+    if (offer.offer_type === 'combo' && Array.isArray(offer.combo_items)) {
+      setComboItems(offer.combo_items.map(item => item.name || ''));
+    } else {
+      setComboItems(['']);
+    }
+
+    setShowOfferForm(true);
+    setOfferError('');
+  };
+
+  const handleOfferFormChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setOfferForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleDayToggle = (day) => {
+    setOfferForm(prev => ({
+      ...prev,
+      valid_days: prev.valid_days.includes(day)
+        ? prev.valid_days.filter(d => d !== day)
+        : [...prev.valid_days, day]
+    }));
+  };
+
+  const handleSaveOffer = async (e) => {
+    e.preventDefault();
+    setOfferLoading(true);
+    setOfferError('');
+    try {
+      let formattedComboItems = null;
+      if (offerForm.offer_type === 'combo') {
+        const filteredItems = comboItems.filter(item => item.trim() !== '');
+        if (filteredItems.length === 0) {
+          throw new Error('Please add at least one combo item');
+        }
+        formattedComboItems = filteredItems.map(item => ({ name: item.trim() }));
+      }
+
+      const payload = {
+        ...offerForm,
+        valid_days: offerForm.valid_days.length > 0 ? offerForm.valid_days : null,
+        valid_until: offerForm.valid_until || null,
+        combo_items: formattedComboItems
+      };
+      if (editingOffer) {
+        await offersAPI.updateOffer(editingOffer.id, payload);
+      } else {
+        await offersAPI.createOffer(payload);
+      }
+      await fetchData(true);
+      resetOfferForm();
+      setShowOfferForm(false);
+    } catch (err) {
+      setOfferError(err.message || err.response?.data?.error || 'Failed to save offer');
+    } finally {
+      setOfferLoading(false);
+    }
+  };
+
+  const handleToggleOffer = async (offer) => {
+    try {
+      await offersAPI.toggleStatus(offer.id, !offer.is_active);
+      await fetchData(true);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to toggle offer');
+    }
+  };
+
+  const handleDeleteOffer = async (id) => {
+    if (!window.confirm('Delete this offer?')) return;
+    try {
+      await offersAPI.deleteOffer(id);
+      await fetchData(true);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete offer');
+    }
+  };
+  // ======================== END OFFER HANDLERS ========================
 
   const handleSaveLoyaltySettings = async (e) => {
     e.preventDefault();
@@ -244,11 +374,17 @@ export const ManagerDashboard = () => {
           >
             <FaHeadset style={{ marginRight: '6px' }} /> Support ({escalatedTickets.length + refunds.filter(r => r.status === 'Pending').length})
           </button>
-          <button 
+          <button
             className={`admin-tab-btn ${activeTab === 'loyalty' ? 'active' : ''}`}
             onClick={() => setActiveTab('loyalty')}
           >
             <FaGift style={{ marginRight: '6px' }} /> Loyalty Program
+          </button>
+          <button
+            className={`admin-tab-btn ${activeTab === 'offers' ? 'active' : ''}`}
+            onClick={() => setActiveTab('offers')}
+          >
+            <FaTag style={{ marginRight: '6px' }} /> Offers ({offers.length})
           </button>
         </div>
 
@@ -660,6 +796,230 @@ export const ManagerDashboard = () => {
                     {savingLoyaltySettings ? 'Saving Settings...' : 'Save Settings'}
                   </button>
                 </form>
+              </div>
+            )}
+            {/* =========== OFFERS TAB =========== */}
+            {activeTab === 'offers' && (
+              <div className="loyalty-panel" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h2 style={{ color: '#1e293b', margin: 0 }}>🔥 Offer Management</h2>
+                  <button
+                    onClick={() => { resetOfferForm(); setShowOfferForm(true); }}
+                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: '10px', padding: '10px 20px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <FaPlus /> Create Offer
+                  </button>
+                </div>
+
+                {/* Create / Edit Form */}
+                {showOfferForm && (
+                  <form onSubmit={handleSaveOffer} style={{ background: '#f8fafc', borderRadius: '16px', padding: '24px', marginBottom: '28px', border: '1.5px solid #e2e8f0' }}>
+                    <h3 style={{ marginBottom: '18px', color: '#6366f1' }}>{editingOffer ? 'Edit Offer' : 'Create New Offer'}</h3>
+                    {offerError && <div style={{ color: '#ef4444', marginBottom: '14px', fontWeight: 600 }}>{offerError}</div>}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                      <div>
+                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Offer Name *</label>
+                        <input name="name" value={offerForm.name} onChange={handleOfferFormChange} required placeholder="e.g. Burger Combo" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Offer Type *</label>
+                        <select name="offer_type" value={offerForm.offer_type} onChange={handleOfferFormChange} style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }}>
+                          <option value="flat">Flat Discount (Spend X, Get Y Off)</option>
+                          <option value="percentage">Percentage Discount</option>
+                          <option value="combo">Combo Offer</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Flat Offer Fields */}
+                    {offerForm.offer_type === 'flat' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div>
+                          <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Minimum Spend (₹)</label>
+                          <input type="number" name="min_spend" value={offerForm.min_spend} onChange={handleOfferFormChange} placeholder="e.g. 500" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Flat Discount (₹)</label>
+                          <input type="number" name="flat_discount" value={offerForm.flat_discount} onChange={handleOfferFormChange} placeholder="e.g. 50" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Percentage Offer Fields */}
+                    {offerForm.offer_type === 'percentage' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                        <div>
+                          <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Discount %</label>
+                          <input type="number" name="discount_percent" value={offerForm.discount_percent} onChange={handleOfferFormChange} placeholder="e.g. 20" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                        </div>
+                        <div>
+                          <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Applies To (Category name / leave blank for all)</label>
+                          <input name="category_condition" value={offerForm.category_condition} onChange={handleOfferFormChange} placeholder="e.g. Pizzas" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Combo Offer Fields */}
+                    {offerForm.offer_type === 'combo' && (
+                      <>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                          <div>
+                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Original Price (₹)</label>
+                            <input type="number" name="original_price" value={offerForm.original_price} onChange={handleOfferFormChange} placeholder="e.g. 280" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                          </div>
+                          <div>
+                            <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Offer Price (₹)</label>
+                            <input type="number" name="offer_price" value={offerForm.offer_price} onChange={handleOfferFormChange} placeholder="e.g. 249" style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: '16px' }}>
+                          <label style={{ fontWeight: 600, display: 'block', marginBottom: '8px' }}>Combo Items *</label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {comboItems.map((item, index) => (
+                              <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                <input
+                                  type="text"
+                                  value={item}
+                                  onChange={(e) => {
+                                    const newList = [...comboItems];
+                                    newList[index] = e.target.value;
+                                    setComboItems(newList);
+                                  }}
+                                  placeholder={`e.g. Item ${index + 1}`}
+                                  required
+                                  style={{
+                                    boxSizing: 'border-box',
+                                    flex: 1,
+                                    padding: '10px 12px',
+                                    borderRadius: '8px',
+                                    border: '1.5px solid #cbd5e1',
+                                    outline: 'none'
+                                  }}
+                                />
+                                {comboItems.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newList = comboItems.filter((_, i) => i !== index);
+                                      setComboItems(newList);
+                                    }}
+                                    style={{
+                                      padding: '10px 14px',
+                                      borderRadius: '8px',
+                                      border: 'none',
+                                      background: '#fee2e2',
+                                      color: '#ef4444',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            <button
+                              type="button"
+                              onClick={() => setComboItems([...comboItems, ''])}
+                              style={{
+                                alignSelf: 'flex-start',
+                                padding: '8px 16px',
+                                borderRadius: '8px',
+                                border: '1.5px solid #6366f1',
+                                background: 'transparent',
+                                color: '#6366f1',
+                                fontWeight: 600,
+                                fontSize: '0.875rem',
+                                cursor: 'pointer',
+                                marginTop: '4px'
+                              }}
+                            >
+                              + Add Item
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {/* Validity */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                      <div>
+                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '6px' }}>Valid Until (leave blank = no expiry)</label>
+                        <input type="date" name="valid_until" value={offerForm.valid_until} onChange={handleOfferFormChange} style={{ boxSizing: 'border-box', width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1.5px solid #cbd5e1', outline: 'none' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontWeight: 600, display: 'block', marginBottom: '8px' }}>Valid Days (none = every day)</label>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          {DAYS.map(day => (
+                            <button key={day} type="button" onClick={() => handleDayToggle(day)} style={{ padding: '4px 10px', borderRadius: '20px', border: `1.5px solid ${offerForm.valid_days.includes(day) ? '#6366f1' : '#cbd5e1'}`, background: offerForm.valid_days.includes(day) ? '#6366f1' : '#f8fafc', color: offerForm.valid_days.includes(day) ? '#fff' : '#475569', fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer', textTransform: 'capitalize' }}>
+                              {day.slice(0, 3)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Active toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+                      <input type="checkbox" id="offer-active" name="is_active" checked={offerForm.is_active} onChange={handleOfferFormChange} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
+                      <label htmlFor="offer-active" style={{ fontWeight: 600, cursor: 'pointer' }}>Active (visible to customers)</label>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button type="submit" disabled={offerLoading} style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)', color: '#fff', border: 'none', borderRadius: '10px', padding: '12px 28px', fontWeight: 700, cursor: 'pointer', fontSize: '0.95rem' }}>
+                        {offerLoading ? 'Saving...' : (editingOffer ? 'Update Offer' : 'Create Offer')}
+                      </button>
+                      <button type="button" onClick={() => { setShowOfferForm(false); resetOfferForm(); }} style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '10px', padding: '12px 22px', fontWeight: 600, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </form>
+                )}
+
+                {/* Offers List */}
+                {offers.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '12px' }}>🏷️</div>
+                    <p style={{ fontSize: '1.1rem' }}>No offers yet. Click <strong>Create Offer</strong> to add your first one.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {offers.map(offer => {
+                      const typeColors = { flat: '#10b981', percentage: '#6366f1', combo: '#f59e0b' };
+                      const typeLabels = { flat: '₹ Flat', percentage: '% Off', combo: '🎁 Combo' };
+                      return (
+                        <div key={offer.id} style={{ background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: '14px', padding: '18px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', opacity: offer.is_active ? 1 : 0.6 }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                              <span style={{ fontSize: '1.05rem', fontWeight: 700, color: '#1e293b' }}>{offer.name}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 10px', borderRadius: '20px', background: `${typeColors[offer.offer_type]}22`, color: typeColors[offer.offer_type] }}>{typeLabels[offer.offer_type]}</span>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 10px', borderRadius: '20px', background: offer.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(107,114,128,0.1)', color: offer.is_active ? '#10b981' : '#6b7280' }}>
+                                {offer.is_active ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                            <div style={{ fontSize: '0.875rem', color: '#64748b' }}>
+                              {offer.offer_type === 'flat' && `Spend ₹${offer.min_spend} → Get ₹${offer.flat_discount} off`}
+                              {offer.offer_type === 'percentage' && `${offer.discount_percent}% off${offer.category_condition ? ` on ${offer.category_condition}` : ''}`}
+                              {offer.offer_type === 'combo' && `₹${offer.offer_price} (was ₹${offer.original_price})`}
+                              {offer.valid_until && ` · Expires ${new Date(offer.valid_until).toLocaleDateString('en-IN')}`}
+                              {offer.valid_days?.length > 0 && ` · ${offer.valid_days.map(d => d.slice(0,3)).join(', ')}`}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                            <button onClick={() => handleToggleOffer(offer)} title={offer.is_active ? 'Deactivate' : 'Activate'} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: offer.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: offer.is_active ? '#ef4444' : '#10b981', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>
+                              {offer.is_active ? <FaToggleOn /> : <FaToggleOff />} {offer.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button onClick={() => handleEditOffer(offer)} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'rgba(99,102,241,0.1)', color: '#6366f1', cursor: 'pointer', fontWeight: 700 }}>
+                              <FaEdit />
+                            </button>
+                            <button onClick={() => handleDeleteOffer(offer.id)} style={{ padding: '8px 12px', borderRadius: '8px', border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444', cursor: 'pointer', fontWeight: 700 }}>
+                              <FaTrash />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </>

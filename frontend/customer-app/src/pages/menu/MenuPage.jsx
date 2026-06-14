@@ -11,7 +11,7 @@ export const MenuPage = () => {
 
   // Categories state: array of { id, name }
   const [categories, setCategories] = useState([{ id: 'All', name: 'All' }]);
-  const [activeCategory, setActiveCategory] = useState('All');
+  const [activeCategory, setActiveCategory] = useState(null);
   
   // Menu items state
   const [menuItems, setMenuItems] = useState([]);
@@ -36,6 +36,7 @@ export const MenuPage = () => {
 
           // Pre-select category if passed in navigation state
           const targetCatName = location.state?.selectCategoryName;
+          let selectedId = 'All';
           if (targetCatName) {
             const matched = fetchedCats.find(c => {
               const nameLower = c.name.toLowerCase();
@@ -43,12 +44,16 @@ export const MenuPage = () => {
               return nameLower.includes(targetLower) || targetLower.includes(nameLower) || (targetLower === 'coffee' && nameLower === 'drinks');
             });
             if (matched) {
-              setActiveCategory(matched.id);
+              selectedId = matched.id;
             }
           }
+          setActiveCategory(selectedId);
+        } else {
+          setActiveCategory('All');
         }
       } catch (err) {
         console.error('Failed to fetch categories:', err);
+        setActiveCategory('All');
       }
     };
     fetchCategories();
@@ -56,29 +61,41 @@ export const MenuPage = () => {
 
   // 2. Fetch menu items whenever the active category changes
   useEffect(() => {
+    if (activeCategory === null) return;
+
+    let active = true;
     const fetchMenuItems = async () => {
       setIsLoading(true);
       setError(null);
       try {
         const response = await menuAPI.getMenu(activeCategory === 'All' ? null : activeCategory);
         if (response.data && response.data.status === 'success') {
-          setMenuItems(response.data.data);
+          if (active) {
+            setMenuItems(response.data.data);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch menu items:', err);
-        setError('Could not load menu items. Please check backend connection.');
+        if (active) {
+          setError('Could not load menu items. Please check backend connection.');
+        }
       } finally {
-        setIsLoading(false);
+        if (active) {
+          setIsLoading(false);
+        }
       }
     };
     fetchMenuItems();
+    return () => {
+      active = false;
+    };
   }, [activeCategory]);
 
   // Filter food based on search term (since category filtering is handled server-side)
   const filteredFood = useMemo(() => {
     return menuItems.filter((food) => {
-      const matchesSearch = food.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           food.description.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = (food.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (food.description || '').toLowerCase().includes(searchTerm.toLowerCase());
       return matchesSearch;
     });
   }, [menuItems, searchTerm]);
