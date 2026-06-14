@@ -1,9 +1,9 @@
 // API Service Layer for Backend Integration
-// Base URL: https://api.restaurantpwa.com/v1
+// Base URL: https://api.directdine.com/v1
 
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.restaurantpwa.com/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.directdine.com/v1';
 
 // Create axios instance with base configuration
 const api = axios.create({

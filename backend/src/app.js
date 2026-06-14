@@ -30,7 +30,7 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Root route welcome message
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Welcome to the Restaurant PWA API' });
+  res.json({ status: 'ok', message: 'Welcome to the DirectDine API' });
 });
 
 // Base route for status check

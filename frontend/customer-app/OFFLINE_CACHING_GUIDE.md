@@ -1,6 +1,6 @@
-# Offline Caching Guide for Restaurant PWA
+# Offline Caching Guide for DirectDine
 
-This guide explains how offline caching works in your restaurant app, written for beginners.
+This guide explains how offline caching works in your DirectDine app, written for beginners.
 
 ## What is Offline Caching?
 
@@ -114,7 +114,7 @@ workbox: {
   runtimeCaching: [
     {
       // API calls - try network first, fallback to cache
-      urlPattern: /^https:\/\/api\.restaurantpwa\.com\/.*/i,
+      urlPattern: /^https:\/\/api\.directdine\.com\/.*/i,
       handler: 'NetworkFirst',
       options: {
         cacheName: 'api-cache',
@@ -311,7 +311,7 @@ Notify users about:
 
 ## Summary
 
-Your restaurant app now has comprehensive offline caching:
+Your DirectDine app now has comprehensive offline caching:
 
 ✅ **Menu pages** - Cached and works offline
 ✅ **Images** - Cached for 30 days, loads instantly

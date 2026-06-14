@@ -33,7 +33,7 @@ export const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-container">
         <Link to="/" className="navbar-logo">
-          <h1>🍽️ Restaurant PWA</h1>
+          <h1>🍽️ DirectDine Admin</h1>
         </Link>
 
         {/* Desktop Navigation */}
