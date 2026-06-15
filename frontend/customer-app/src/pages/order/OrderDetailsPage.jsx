@@ -154,6 +154,11 @@ export const OrderDetailsPage = () => {
     }))
   };
 
+  // ====== NEW: derive subtotal and tax+delivery from the final total_amount ======
+  const itemsSubtotal = uiOrder.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const taxAndDeliveryCharge = uiOrder.total_amount - itemsSubtotal;
+  // ================================================================================
+
   return (
     <div className="order-details-page">
       <div className="order-details-container">
@@ -358,22 +363,16 @@ export const OrderDetailsPage = () => {
             <div className="summary-card">
               <div className="summary-row">
                 <span className="summary-label">Subtotal</span>
-                <span className="summary-value">₹{uiOrder.total_amount.toFixed(2)}</span>
+                <span className="summary-value">₹{itemsSubtotal.toFixed(2)}</span>
               </div>
               <div className="summary-row">
-                <span className="summary-label">Delivery Fee</span>
-                <span className="summary-value">₹2.99</span>
-              </div>
-              <div className="summary-row">
-                <span className="summary-label">Tax</span>
-                <span className="summary-value">₹{(uiOrder.total_amount * 0.08).toFixed(2)}</span>
+                <span className="summary-label">Taxes & Delivery</span>
+                <span className="summary-value">₹{taxAndDeliveryCharge.toFixed(2)}</span>
               </div>
               <div className="summary-divider"></div>
               <div className="summary-row total-row">
                 <span className="summary-label total-label">Total</span>
-                <span className="summary-value total-value">
-                  ₹{(uiOrder.total_amount + 2.99 + uiOrder.total_amount * 0.08).toFixed(2)}
-                </span>
+                <span className="summary-value total-value">₹{uiOrder.total_amount.toFixed(2)}</span>
               </div>
             </div>
 

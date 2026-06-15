@@ -101,6 +101,10 @@ export const createOrder = async (req, res, next) => {
         price: price
       });
     }
+    const subtotal = totalAmount;
+    const DELIVERY_FEE = 2.99;
+    const TAX_RATE = 0.08;
+    const taxAmount = subtotal * TAX_RATE;
 
     // Offer Discount logic — auto-apply best eligible offer
     let offerDiscount = 0;
@@ -211,7 +215,7 @@ export const createOrder = async (req, res, next) => {
     let newOrder;
     const insertPayload = {
       user_id: userId,
-      total_amount: Math.max(0, totalAmount - loyaltyDiscount),
+        total_amount: Math.max(0, totalAmount - loyaltyDiscount + DELIVERY_FEE + taxAmount),
       status: 'pending',
       payment_status: 'unpaid'
     };
